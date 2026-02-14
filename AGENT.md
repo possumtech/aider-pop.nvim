@@ -2,6 +2,12 @@
 
 This document tracks the progress of `aider-pop.nvim`. Each milestone is considered complete only when its corresponding test in `/test` passes via `test.sh`.
 
+We are only performing one step at a time. Do not proceed to a step unless directly told to do so.
+
+If a test has not finished in 30 seconds, it isn't going to.
+
+Please review previous tests to ensure that you're not taking an unnecessarily novel approach to the testing.
+
 ## 🛠 Phase 1: Core Process & Communication
 - [x] **Background Job Initiation**: Aider starts headlessly on plugin load/command.
     - `test/6_process_spawn.sh`
@@ -11,8 +17,8 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
     - `test/8_startup_error.sh`
 - [x] **Basic Command Routing**: `:AI:` sends raw text to the Aider process.
     - `test/9_command_routing.sh`
-- [ ] **Mode Switching**: `:AI?` and `:AI!` correctly prefix messages with `/ask` and `/run`.
-    - `test/10_mode_prefixes.lua`
+- [x] **Mode Switching**: `:AI?` and `:AI!` correctly prefix messages with `/ask` and `/run`.
+    - `test/10_mode_prefixes.sh`
 - [ ] **Slash Commands**: `:AI/` sends direct slash commands to Aider.
     - `test/11_slash_commands.lua`
 

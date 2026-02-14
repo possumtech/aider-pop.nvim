@@ -51,6 +51,20 @@ function M.send(text)
 		vim.notify("aider-pop: Aider is not running", vim.log.levels.ERROR)
 		return
 	end
+
+	local first_char = text:sub(1, 1)
+	local rest = text:sub(2):gsub("^%s+", "")
+
+	if first_char == ":" then
+		text = rest
+	elseif first_char == "?" then
+		text = "/ask " .. rest
+	elseif first_char == "!" then
+		text = "/run " .. rest
+	elseif first_char == "/" then
+		text = "/" .. rest
+	end
+
 	vim.fn.chansend(M.job_id, text .. "\n")
 end
 
