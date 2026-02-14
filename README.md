@@ -79,6 +79,36 @@ vim.keymap.set('n', '<C-a>', '<cmd>AiderPopToggle<cr>', { desc = "Toggle Aider P
 
 ---
 
+## 🔗 Extensions & Hooks
+
+`aider-pop.nvim` provides a robust event system to trigger internal Neovim actions or external system scripts (like playing music or updating hardware lights) during Aider sessions.
+
+### Internal: User Autocommands
+The plugin triggers `User` events `AiderStart` and `AiderStop` with a unique request ID.
+
+```lua
+vim.api.nvim_create_autocmd("User", {
+    pattern = "AiderStart",
+    callback = function(ev)
+        print("Aider is working on request: " .. ev.data.id)
+    end
+})
+```
+
+### External: System Hooks
+You can configure shell commands to run automatically in your `opts`:
+
+```lua
+require("aider-pop").setup({
+    hooks = {
+        on_start = "afplay ~/music/elevator.mp3 &",
+        on_stop = "pkill afplay",
+    }
+})
+```
+
+---
+
 ## 🎨 UI Indicators
 
 Access the Aider status via `require('aider-pop').status()` for your statusline:
@@ -99,12 +129,12 @@ The developer's home is the source code, not a chat interface. `aider-pop.nvim` 
 
 Contributions are welcome! To maintain a clean and navigable history, this project follows:
 
-- **[Conventional Commits](https://www.conventionalcommits.org/)**: Every commit message must follow the `type: description` format (e.g., `feat: add context sync`).
+- **[Conventional Commits](https://www.conventionalcommits.org/)**: Every commit message must follow the `type: #67 description` format (e.g., `feat: #67 add context sync`), associated with a github issue id that is constructed using the issue templates provided.
 - **Conventional Branching**: Please name your branches based on their purpose:
-    - `feat/...` for new features.
-    - `fix/...` for bug fixes.
-    - `docs/...` for documentation.
-    - `refactor/...` for code cleanup.
+    - `feat/67-...` for new features.
+    - `fix/67-...` for bug fixes.
+    - `docs/67-...` for documentation.
+    - `refactor/67-...` for code cleanup.
 
 ---
 
