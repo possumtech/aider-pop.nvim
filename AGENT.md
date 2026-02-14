@@ -7,8 +7,8 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
     - `test/6_process_spawn.sh`
 - [x] **Startup Arguments**: Custom flags (e.g., `--model`, `--light-mode`) are correctly passed to the Aider process.
     - `test/7_startup_args.sh`
-- [ ] **Error Handling**: Plugin notifies user if `aider` binary is missing or fails to start.
-    - `test/8_startup_error.lua`
+- [x] **Error Handling**: Plugin notifies user if `aider` binary is missing or fails to start.
+    - `test/8_startup_error.sh`
 - [ ] **Basic Command Routing**: `:AI:` sends raw text to the Aider process.
     - `test/9_command_routing.lua`
 - [ ] **Mode Switching**: `:AI?` and `:AI!` correctly prefix messages with `/ask` and `/run`.

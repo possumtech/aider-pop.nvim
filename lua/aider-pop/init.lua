@@ -17,6 +17,11 @@ function M.start()
 		return
 	end
 
+	if vim.fn.executable(M.config.binary) ~= 1 then
+		vim.notify("aider-pop: aider binary not found: " .. M.config.binary, vim.log.levels.ERROR)
+		return
+	end
+
 	local cmd = { M.config.binary }
 	for _, arg in ipairs(M.config.args) do
 		table.insert(cmd, arg)
