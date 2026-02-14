@@ -5,8 +5,8 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
 ## 🛠 Phase 1: Core Process & Communication
 - [x] **Background Job Initiation**: Aider starts headlessly on plugin load/command.
     - `test/6_process_spawn.sh`
-- [ ] **Startup Arguments**: Custom flags (e.g., `--model`, `--light-mode`) are correctly passed to the Aider process.
-    - `test/7_startup_args.lua`
+- [x] **Startup Arguments**: Custom flags (e.g., `--model`, `--light-mode`) are correctly passed to the Aider process.
+    - `test/7_startup_args.sh`
 - [ ] **Error Handling**: Plugin notifies user if `aider` binary is missing or fails to start.
     - `test/8_startup_error.lua`
 - [ ] **Basic Command Routing**: `:AI:` sends raw text to the Aider process.

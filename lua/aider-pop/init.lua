@@ -2,6 +2,7 @@ local M = {}
 
 M.config = {
 	binary = "aider",
+	args = { "--no-auto-commits" },
 }
 
 M.job_id = nil
@@ -16,7 +17,10 @@ function M.start()
 		return
 	end
 
-	local cmd = { M.config.binary, "--no-auto-commits" }
+	local cmd = { M.config.binary }
+	for _, arg in ipairs(M.config.args) do
+		table.insert(cmd, arg)
+	end
 
 	M.job_id = vim.fn.jobstart(cmd, {
 		on_exit = function(_, exit_code)
