@@ -13,7 +13,15 @@ function M.setup(opts)
 
 	vim.api.nvim_create_user_command("AI", function(cmd_opts)
 		M.send(cmd_opts.args)
-	end, { nargs = "+" })
+	end, { nargs = "*" })
+
+	-- Abbreviations to support documented syntax: :AI: <msg>, :AI? <msg>, etc.
+	vim.cmd([[
+		cnoreabbrev <expr> AI: (getcmdtype() == ':' && getcmdline() ==# 'AI:') ? 'AI :' : 'AI:'
+		cnoreabbrev <expr> AI? (getcmdtype() == ':' && getcmdline() ==# 'AI?') ? 'AI ?' : 'AI?'
+		cnoreabbrev <expr> AI! (getcmdtype() == ':' && getcmdline() ==# 'AI!') ? 'AI !' : 'AI!'
+		cnoreabbrev <expr> AI/ (getcmdtype() == ':' && getcmdline() ==# 'AI/') ? 'AI /' : 'AI/'
+	]])
 end
 
 function M.start()
