@@ -10,13 +10,13 @@ Please review previous tests to ensure that you're not taking an unnecessarily n
 
 ## 🛠 Phase 1: Core Process & Communication
 - [x] **Background Job Initiation**: Aider starts headlessly on plugin load/command.
-    - `test/6_process_spawn.sh`
+    - `test/06_process_spawn.sh`
 - [x] **Startup Arguments**: Custom flags (e.g., `--model`, `--light-mode`) are correctly passed to the Aider process.
-    - `test/7_startup_args.sh`
+    - `test/07_startup_args.sh`
 - [x] **Error Handling**: Plugin notifies user if `aider` binary is missing or fails to start.
-    - `test/8_startup_error.sh`
+    - `test/08_startup_error.sh`
 - [x] **Basic Command Routing**: `:AI:` sends raw text to the Aider process.
-    - `test/9_command_routing.sh`
+    - `test/09_command_routing.sh`
 - [x] **Mode Switching**: `:AI?` and `:AI!` correctly prefix messages with `/ask` and `/run`.
     - `test/10_mode_prefixes.sh`
 - [ ] **Slash Commands**: `:AI/` sends direct slash commands to Aider.
