@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Aider Pop Test Runner
-# Runs all Lua tests in /test using headless Neovim
+# Runs all shell scripts in /test
 
 set -e
 
@@ -11,16 +11,12 @@ TOTAL=0
 echo "🚀 Starting aider-pop.nvim test suite..."
 echo "---------------------------------------"
 
-for test_file in test/*.lua; do
+for test_file in test/*.sh; do
     if [ -f "$test_file" ]; then
         ((TOTAL++))
         echo -n "Running $(basename "$test_file")... "
         
-        # Run Neovim headlessly, add current dir to runtimepath, and run the test file
-        if nvim --headless -u NONE \
-            --cmd "set runtimepath+=." \
-            -c "luafile $test_file" \
-            -c "qa!" 2>/dev/null; then
+        if bash "$test_file"; then
             echo "✅ PASS"
         else
             echo "❌ FAIL"
