@@ -10,6 +10,10 @@ M.job_id = nil
 function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
 	M.start()
+
+	vim.api.nvim_create_user_command("AI", function(cmd_opts)
+		M.send(cmd_opts.args)
+	end, { nargs = "+" })
 end
 
 function M.start()
@@ -32,6 +36,14 @@ function M.start()
 			M.job_id = nil
 		end,
 	})
+end
+
+function M.send(text)
+	if not M.is_running() then
+		vim.notify("aider-pop: Aider is not running", vim.log.levels.ERROR)
+		return
+	end
+	vim.fn.chansend(M.job_id, text .. "\n")
 end
 
 function M.is_running()

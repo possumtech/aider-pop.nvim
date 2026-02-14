@@ -9,8 +9,8 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
     - `test/7_startup_args.sh`
 - [x] **Error Handling**: Plugin notifies user if `aider` binary is missing or fails to start.
     - `test/8_startup_error.sh`
-- [ ] **Basic Command Routing**: `:AI:` sends raw text to the Aider process.
-    - `test/9_command_routing.lua`
+- [x] **Basic Command Routing**: `:AI:` sends raw text to the Aider process.
+    - `test/9_command_routing.sh`
 - [ ] **Mode Switching**: `:AI?` and `:AI!` correctly prefix messages with `/ask` and `/run`.
     - `test/10_mode_prefixes.lua`
 - [ ] **Slash Commands**: `:AI/` sends direct slash commands to Aider.
