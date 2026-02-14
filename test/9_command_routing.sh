@@ -21,11 +21,9 @@ nvim --headless -n -u NONE \
     -c "qa!"
 
 if [ -f "$LOG_FILE" ] && grep -q "hello from neovim" "$LOG_FILE"; then
-    echo "✅ Test passed: Command routed to Aider."
     rm "$MOCK_BIN" "$LOG_FILE"
     exit 0
 else
-    echo "❌ Test failed: Command not routed to Aider."
     [ -f "$LOG_FILE" ] && echo "Log content: $(cat "$LOG_FILE")" || echo "Log file not found."
     rm -f "$MOCK_BIN" "$LOG_FILE"
     exit 1
