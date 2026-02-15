@@ -4,26 +4,24 @@
 REPO_ROOT=$(pwd)
 
 # Create a temporary init.lua for the interactive session
-# Use .lua extension to force nvim to treat it as lua config
 TEMP_INIT=$(mktemp).lua
 
 cat <<EOF > "$TEMP_INIT"
 -- Add the plugin to runtimepath
 vim.opt.runtimepath:append("$REPO_ROOT")
 
--- Setup the plugin with some default dev options
+-- Setup the plugin
 require('aider-pop').setup({
-    args = { "--no-auto-commits", "--dark-mode" }
+    -- Passing empty args here used to wipe out the plugin defaults
+    -- Now it should merge or we should pass what we want.
+    -- To test the plugin's new default --no-gitignore, we'll pass nothing or explicit ones.
+    args = { "--no-gitignore" }
 })
 
--- Suggest a keybinding for the user
--- Note: AiderPopToggle is not implemented yet in the code
-vim.keymap.set('n', '<leader>a', function() 
-    print("AiderPopToggle not implemented yet. Use :AI, :AI?, :AI!, :AI/ commands.")
-end, { desc = "Toggle Aider Pop (Placeholder)" })
+-- Map leader-a to toggle
+vim.keymap.set('n', '<leader>a', '<cmd>AiderPopToggle<cr>', { desc = "Toggle Aider Pop" })
 
-print("🚀 aider-pop.nvim loaded!")
-print("Try commands: :AI hello, :AI? how are you, :AI! ls")
+print("🚀 aider-pop.nvim loaded with --no-gitignore!")
 EOF
 
 # Run Neovim with the temporary config

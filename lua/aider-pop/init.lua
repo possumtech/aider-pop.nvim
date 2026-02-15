@@ -2,7 +2,7 @@ local M = {}
 
 M.config = {
 	binary = "aider",
-	args = {},
+	args = { "--no-gitignore", "--yes-always" },
 	ui = {
 		width = 0.8,
 		height = 0.8,
@@ -16,10 +16,9 @@ M.term_id = nil
 M.window = nil
 
 function M.setup(opts)
+	local args = (opts and opts.args) and opts.args or M.config.args
 	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
-	if opts and opts.args then
-		M.config.args = opts.args
-	end
+	M.config.args = args
 	M.start()
 
 	vim.api.nvim_create_user_command("AI", function(cmd_opts)
@@ -62,6 +61,13 @@ function M.start()
 		table.insert(cmd, arg)
 	end
 
+	-- DEBUG
+	local debug_file = io.open("aider_cmd_debug.log", "a")
+	if debug_file then
+		debug_file:write(os.date("%Y-%m-%d %H:%M:%S") .. " Starting: " .. table.concat(cmd, " ") .. "\n")
+		debug_file:close()
+	end
+
 	M.job_id = vim.fn.jobstart(cmd, {
 		pty = true,
 		on_stdout = function(_, data)
@@ -93,6 +99,10 @@ function M.send(text)
 	if (second_char == " " or second_char == "") then
 		if first_char == "?" then
 			payload = "/ask " .. text:sub(2):gsub("^%s+", "")
+			-- Auto-open modal for questions
+			if not (M.window and vim.api.nvim_win_is_valid(M.window)) then
+				M.toggle_modal()
+			end
 		elseif first_char == "!" then
 			payload = "/run " .. text:sub(2):gsub("^%s+", "")
 		elseif first_char == "/" then
@@ -133,6 +143,9 @@ function M.toggle_modal()
 			style = "minimal",
 		})
 		
+		-- Map Esc to return to Normal mode specifically in the Aider terminal buffer
+		vim.api.nvim_buf_set_keymap(M.buffer, 't', '<Esc>', [[<C-\><C-n>]], {noremap = true, silent = true})
+
 		-- Always open in Normal mode
 		vim.cmd("stopinsert")
 
