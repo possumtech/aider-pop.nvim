@@ -4,19 +4,27 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
 
 ## 🛠 Phase 1: Core Process & Communication
 - [x] **Background Job Initiation**: Aider starts headlessly on plugin load/command.
-    - `test/6_process_spawn.sh`
+    - `test/6_process_spawn.lua`
 - [x] **Startup Arguments**: Custom flags (e.g., `--model`, `--light-mode`) are correctly passed to the Aider process.
-    - `test/7_startup_args.sh`
+    - `test/7_startup_args.lua`
 - [x] **Error Handling**: Plugin notifies user if `aider` binary is missing or fails to start.
-    - `test/8_startup_error.sh`
+    - `test/8_startup_error.lua`
 - [x] **Basic Command Routing**: `:AI:` sends raw text to the Aider process.
-    - `test/9_command_routing.sh`
+    - `test/9_command_routing.lua`
 - [x] **Mode Switching**: `:AI?` and `:AI!` correctly prefix messages with `/ask` and `/run`.
     - `test/10_mode_prefixes.lua`
 - [x] **Slash Commands**: `:AI/` sends direct slash commands to Aider.
     - `test/11_slash_commands.lua`
 
-## 🏗 Phase 2: Bidirectional Context Sync
+## 🖥 Phase 2: User Interface
+- [ ] **The Modal Toggle**: `:AiderPopToggle` opens/closes a floating window showing the Aider buffer.
+    - `test/18_modal_ui.lua`
+- [ ] **Modal Default Mode**: The modal opens in Normal mode by default (configurable).
+    - `test/19_modal_mode.lua`
+- [ ] **Statusline Integration**: `require('aider-pop').status()` returns correct symbols based on process state.
+    - `test/20_status_api.lua`
+
+## 🏗 Phase 3: Bidirectional Context Sync
 - [ ] **Neovim -> Aider (/add)**: Creating or opening a buffer in Neovim triggers a `/add` command to Aider.
     - `test/12_auto_add_nvim.lua`
 - [ ] **Ignore Non-File Buffers**: Special buffers (e.g., help, quickfix, dashboard) do not trigger `/add`.
@@ -29,14 +37,6 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
     - `test/16_auto_drop_aider.lua`
 - [ ] **Visual Selection**: Visual mode commands include the selected text as context.
     - `test/17_visual_context.lua`
-
-## 🖥 Phase 3: User Interface
-- [ ] **The Modal Toggle**: `:AiderPopToggle` opens/closes a floating window showing the Aider buffer.
-    - `test/18_modal_ui.lua`
-- [ ] **Modal Default Mode**: The modal opens in Normal mode by default (configurable).
-    - `test/19_modal_mode.lua`
-- [ ] **Statusline Integration**: `require('aider-pop').status()` returns correct symbols based on process state.
-    - `test/20_status_api.lua`
 
 ## 🔗 Phase 4: Extensions & Hooks
 - [ ] **User Autocommands**: `AiderStart` and `AiderStop` fire with unique IDs.
