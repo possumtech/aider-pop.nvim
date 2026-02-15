@@ -16,8 +16,8 @@ M.window = nil
 
 -- Define highlights for different modes
 vim.cmd([[
-	highlight default AiderNormal guibg=NONE
-	highlight default AiderTerminal guibg=#2d333b
+	highlight default link AiderNormal Normal
+	highlight default AiderTerminal guibg=#ff0000 guifg=#ffffff
 ]])
 
 function M.setup(opts)
