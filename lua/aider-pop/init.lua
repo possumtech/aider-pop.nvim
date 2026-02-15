@@ -12,6 +12,7 @@ M.config = {
 
 M.job_id = nil
 M.buffer = nil
+M.term_id = nil
 M.window = nil
 
 function M.setup(opts)
@@ -51,8 +52,9 @@ function M.start()
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then
 		M.buffer = vim.api.nvim_create_buf(false, true)
 		vim.api.nvim_buf_set_name(M.buffer, "aider-pop-output")
-		vim.api.nvim_buf_set_option(M.buffer, "buftype", "nofile")
-		vim.api.nvim_buf_set_option(M.buffer, "swapfile", false)
+		
+		-- Use nvim_open_term to handle ANSI/Terminal emulation in the buffer
+		M.term_id = vim.api.nvim_open_term(M.buffer, {})
 	end
 
 	local cmd = { M.config.binary }
@@ -60,28 +62,17 @@ function M.start()
 		table.insert(cmd, arg)
 	end
 
-	local function on_event(_, data, event)
-		if data and (data[1] ~= "" or #data > 1) then
-			vim.schedule(function()
-				if vim.api.nvim_buf_is_valid(M.buffer) then
-					vim.api.nvim_buf_set_option(M.buffer, "readonly", false)
-					vim.api.nvim_buf_set_lines(M.buffer, -1, -1, false, data)
-					vim.api.nvim_buf_set_option(M.buffer, "readonly", true)
-
-					-- Auto-scroll if window is open
-					if M.window and vim.api.nvim_win_is_valid(M.window) then
-						local line_count = vim.api.nvim_buf_line_count(M.buffer)
-						vim.api.nvim_win_set_cursor(M.window, { line_count, 0 })
-					end
-				end
-			end)
-		end
-	end
-
 	M.job_id = vim.fn.jobstart(cmd, {
 		pty = true,
-		on_stdout = on_event,
-		on_stderr = on_event,
+		on_stdout = function(_, data)
+			if data then
+				-- Feed raw data into the terminal emulator
+				local joined = table.concat(data, "\n")
+				if joined ~= "" then
+					vim.api.nvim_chan_send(M.term_id, joined)
+				end
+			end
+		end,
 		on_exit = function(_, exit_code)
 			M.job_id = nil
 		end,
@@ -141,6 +132,13 @@ function M.toggle_modal()
 			border = M.config.ui.border,
 			style = "minimal",
 		})
+		
+		-- Always open in Normal mode
+		vim.cmd("stopinsert")
+
+		-- Auto-scroll to bottom
+		local line_count = vim.api.nvim_buf_line_count(M.buffer)
+		vim.api.nvim_win_set_cursor(M.window, { line_count, 0 })
 	end
 end
 
