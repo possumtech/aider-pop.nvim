@@ -163,7 +163,8 @@ function M.setup(opts)
 			local end_line = cmd_opts.line2
 			local lines = vim.api.nvim_buf_get_lines(0, start_line - 1, end_line, false)
 			local selection = table.concat(lines, "\n")
-			text = text .. "\nSelection:\n" .. selection
+			-- Wrap selection in clear delimiters and put instructions first
+			text = text .. "\n\nContext from selection:\n```\n" .. selection .. "\n```"
 		end
 		M.send(text)
 	end, { nargs = "*", range = true })
@@ -204,7 +205,7 @@ function M.start()
 	-- Use termopen to handle terminal emulation and interactivity natively
 	vim.api.nvim_buf_call(M.buffer, function()
 		M.job_id = vim.fn.termopen(cmd, {
-			env = { TERM = "dumb" },
+			env = { TERM = "xterm-256color" },
 			on_stdout = function(_, data)
 				if not data then
 					return
@@ -230,7 +231,9 @@ function M.start()
 end
 
 function M.send_raw(payload)
-	vim.fn.chansend(M.job_id, payload .. "\n")
+	-- Wrap in Bracketed Paste sequences to ensure multiline blocks are treated as one input
+	local bracketed = "\27[200~" .. payload .. "\27[201~\n"
+	vim.fn.chansend(M.job_id, bracketed)
 end
 
 function M.send(text)
