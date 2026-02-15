@@ -43,30 +43,24 @@ function M.setup(opts)
 	]])
 end
 
-function M.start()
-	if M.job_id then
-		return
-	end
-
-	if vim.fn.executable(M.config.binary) ~= 1 then
-		vim.notify("aider-pop: aider binary not found: " .. M.config.binary, vim.log.levels.ERROR)
-		return
-	end
-
-	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then
-		M.buffer = vim.api.nvim_create_buf(false, true)
-		vim.api.nvim_buf_set_name(M.buffer, "aider-pop-terminal")
-	end
-
-	local cmd = { M.config.binary }
-	for _, arg in ipairs(M.config.args) do
-		table.insert(cmd, arg)
-	end
-
 	-- Use termopen to handle terminal emulation and interactivity natively
 	vim.api.nvim_buf_call(M.buffer, function()
 		M.job_id = vim.fn.termopen(cmd, {
 			env = { TERM = "dumb" },
+			on_stdout = function(_, data)
+				if not data then return end
+				for _, line in ipairs(data) do
+					-- Look for patterns like [Yes]: or (Y)es/(N)o at the end of lines
+					if line:match("%[Yes%]:%s*$") or line:match("%(Y%)es/%(N%)o") or line:match("%[y/n%]:%s*$") then
+						vim.schedule(function()
+							if not (M.window and vim.api.nvim_win_is_valid(M.window)) then
+								M.toggle_modal()
+							end
+							vim.cmd("startinsert")
+						end)
+					end
+				end
+			end,
 			on_exit = function(_, exit_code)
 				M.job_id = nil
 			end,
@@ -89,11 +83,19 @@ function M.send(text)
 		if first_char == "?" then
 			payload = "/ask " .. text:sub(2):gsub("^%s+", "")
 			-- Auto-open modal for questions
-			if not (M.window and vim.api.nvim_win_is_valid(M.window)) then
-				M.toggle_modal()
-			end
+			vim.schedule(function()
+				if not (M.window and vim.api.nvim_win_is_valid(M.window)) then
+					M.toggle_modal()
+				end
+			end)
 		elseif first_char == "!" then
 			payload = "/run " .. text:sub(2):gsub("^%s+", "")
+			-- Auto-open modal for runs as they often prompt
+			vim.schedule(function()
+				if not (M.window and vim.api.nvim_win_is_valid(M.window)) then
+					M.toggle_modal()
+				end
+			end)
 		elseif first_char == "/" then
 			payload = "/" .. text:sub(2):gsub("^%s+", "")
 		elseif first_char == ":" then
