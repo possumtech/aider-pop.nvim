@@ -49,43 +49,99 @@ function M.check_state()
 
 	
 
-		-- The standard Aider prompt in TERM=dumb usually ends with '> '
-
-		local is_idle = last_non_empty:match(">%s*$")
+			-- The standard Aider prompt in TERM=dumb usually ends with '> '
 
 	
 
-		if is_idle then
+			local is_idle = last_non_empty:match(">%s*$")
 
-			M.is_blocked = false
+	
 
-			M.process_queue()
+		
 
-		else
+	
 
-			-- If it ends in a question pattern but not the standard prompt
+			if is_idle then
 
-			if last_non_empty:match("%?%s*$") or last_non_empty:match(":%s*$") then
+	
 
-				M.is_blocked = true
+				M.is_blocked = false
 
-				vim.schedule(function()
+	
 
-					if not (M.window and vim.api.nvim_win_is_valid(M.window)) then
+				M.process_queue()
 
-						M.toggle_modal()
+	
 
-					end
+			else
 
-					vim.cmd("startinsert")
+	
 
-				end)
+				-- Only auto-insert on actual blocking prompts, not conversational questions
+
+	
+
+				local is_blocking = last_non_empty:match("%(y/n%)")
+
+	
+
+					or last_non_empty:match("%[y/n%]")
+
+	
+
+					or last_non_empty:match("%(Y%)es/%(N%)o")
+
+	
+
+					or last_non_empty:match("%[Yes%]:")
+
+	
+
+		
+
+	
+
+				if is_blocking then
+
+	
+
+					M.is_blocked = true
+
+	
+
+					vim.schedule(function()
+
+	
+
+						if not (M.window and vim.api.nvim_win_is_valid(M.window)) then
+
+	
+
+							M.toggle_modal()
+
+	
+
+						end
+
+	
+
+						vim.cmd("startinsert")
+
+	
+
+					end)
+
+	
+
+				end
+
+	
 
 			end
 
-		end
+	
 
-	end
+		end
 function M.process_queue()
 	if #M.command_queue > 0 and not M.is_blocked then
 		local text = table.remove(M.command_queue, 1)
@@ -275,6 +331,8 @@ function M.toggle_modal()
 
 		-- Map Esc to return to Normal mode specifically in the Aider terminal buffer
 		vim.api.nvim_buf_set_keymap(M.buffer, "t", "<Esc>", [[<C-\><C-n>]], { noremap = true, silent = true })
+		-- Map Esc to close the window when in Normal mode
+		vim.api.nvim_buf_set_keymap(M.buffer, "n", "<Esc>", [[<cmd>AiderPopToggle<cr>]], { noremap = true, silent = true })
 
 		-- Autocommands to change title and background on mode switch
 		local group = vim.api.nvim_create_augroup("AiderPopMode", { clear = true })
