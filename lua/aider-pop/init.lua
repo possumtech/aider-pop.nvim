@@ -12,8 +12,13 @@ M.config = {
 
 M.job_id = nil
 M.buffer = nil
-M.term_id = nil
 M.window = nil
+
+-- Define highlights for different modes
+vim.cmd([[
+	highlight default AiderNormal guibg=NONE
+	highlight default AiderTerminal guibg=#2d333b
+]])
 
 function M.setup(opts)
 	local args = (opts and opts.args) and opts.args or M.config.args
@@ -50,10 +55,7 @@ function M.start()
 
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then
 		M.buffer = vim.api.nvim_create_buf(false, true)
-		vim.api.nvim_buf_set_name(M.buffer, "aider-pop-output")
-		
-		-- Use nvim_open_term to handle ANSI/Terminal emulation in the buffer
-		M.term_id = vim.api.nvim_open_term(M.buffer, {})
+		vim.api.nvim_buf_set_name(M.buffer, "aider-pop-terminal")
 	end
 
 	local cmd = { M.config.binary }
@@ -61,28 +63,15 @@ function M.start()
 		table.insert(cmd, arg)
 	end
 
-	-- DEBUG
-	local debug_file = io.open("aider_cmd_debug.log", "a")
-	if debug_file then
-		debug_file:write(os.date("%Y-%m-%d %H:%M:%S") .. " Starting: " .. table.concat(cmd, " ") .. "\n")
-		debug_file:close()
-	end
-
-	M.job_id = vim.fn.jobstart(cmd, {
-		pty = true,
-		on_stdout = function(_, data)
-			if data then
-				-- Feed raw data into the terminal emulator
-				local joined = table.concat(data, "\n")
-				if joined ~= "" then
-					vim.api.nvim_chan_send(M.term_id, joined)
-				end
-			end
-		end,
-		on_exit = function(_, exit_code)
-			M.job_id = nil
-		end,
-	})
+	-- Use termopen to handle terminal emulation and interactivity natively
+	vim.api.nvim_buf_call(M.buffer, function()
+		M.job_id = vim.fn.termopen(cmd, {
+			env = { TERM = "dumb" },
+			on_exit = function(_, exit_code)
+				M.job_id = nil
+			end,
+		})
+	end)
 end
 
 function M.send(text)
@@ -141,10 +130,40 @@ function M.toggle_modal()
 			col = col,
 			border = M.config.ui.border,
 			style = "minimal",
+			title = " 🤖 AIDER (Normal) ",
+			title_pos = "center",
 		})
 		
+		-- Set initial highlight
+		vim.api.nvim_win_set_option(M.window, "winhighlight", "Normal:AiderNormal")
+
 		-- Map Esc to return to Normal mode specifically in the Aider terminal buffer
 		vim.api.nvim_buf_set_keymap(M.buffer, 't', '<Esc>', [[<C-\><C-n>]], {noremap = true, silent = true})
+
+		-- Autocommands to change title and background on mode switch
+		local group = vim.api.nvim_create_augroup("AiderPopMode", { clear = true })
+		
+		vim.api.nvim_create_autocmd("TermEnter", {
+			group = group,
+			buffer = M.buffer,
+			callback = function()
+				if M.window and vim.api.nvim_win_is_valid(M.window) then
+					vim.api.nvim_win_set_config(M.window, { title = " ⌨️ AIDER (Terminal) ", title_pos = "center" })
+					vim.api.nvim_win_set_option(M.window, "winhighlight", "Normal:AiderTerminal")
+				end
+			end,
+		})
+
+		vim.api.nvim_create_autocmd("TermLeave", {
+			group = group,
+			buffer = M.buffer,
+			callback = function()
+				if M.window and vim.api.nvim_win_is_valid(M.window) then
+					vim.api.nvim_win_set_config(M.window, { title = " 🤖 AIDER (Normal) ", title_pos = "center" })
+					vim.api.nvim_win_set_option(M.window, "winhighlight", "Normal:AiderNormal")
+				end
+			end,
+		})
 
 		-- Always open in Normal mode
 		vim.cmd("stopinsert")
