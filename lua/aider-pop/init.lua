@@ -7,7 +7,7 @@ M.config = {
 		width = 0.8,
 		height = 0.8,
 		border = "rounded",
-		terminal_name = "xterm-256color",
+		terminal_name = "dumb",
 	},
 }
 
@@ -155,9 +155,9 @@ end
 
 function M.send_raw(payload)
 	local final_payload = payload
-	-- Only use bracketed paste for multiline messages to avoid confusing simple prompts/mocks
+	-- Use Aider's multiline block syntax if payload contains newlines
 	if payload:match("\n") then
-		final_payload = "\27[200~" .. payload .. "\27[201~"
+		final_payload = "{{{\n" .. payload .. "\n}}}"
 	end
 	vim.fn.chansend(M.job_id, final_payload .. "\n")
 end
