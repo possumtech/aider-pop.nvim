@@ -7,6 +7,7 @@ M.config = {
 		width = 0.8,
 		height = 0.8,
 		border = "rounded",
+		terminal_name = "xterm-256color",
 	},
 }
 
@@ -29,119 +30,41 @@ function M.check_state()
 		return
 	end
 
-		local line_count = vim.api.nvim_buf_line_count(M.buffer)
-
-		local last_non_empty = ""
-
-		for i = line_count - 1, 0, -1 do
-
-			local line = vim.api.nvim_buf_get_lines(M.buffer, i, i + 1, false)[1] or ""
-
-			if line:gsub("%s+", "") ~= "" then
-
-				last_non_empty = line
-
-				break
-
-			end
-
+	local line_count = vim.api.nvim_buf_line_count(M.buffer)
+	local last_non_empty = ""
+	for i = line_count - 1, 0, -1 do
+		local line = vim.api.nvim_buf_get_lines(M.buffer, i, i + 1, false)[1] or ""
+		if line:gsub("%s+", "") ~= "" then
+			last_non_empty = line
+			break
 		end
+	end
 
-	
+	-- The standard Aider prompt in TERM=dumb usually ends with '> '
+	local is_idle = last_non_empty:match(">%s*$")
 
-			-- The standard Aider prompt in TERM=dumb usually ends with '> '
+	if is_idle then
+		M.is_blocked = false
+		M.process_queue()
+	else
+		-- Only auto-insert on actual blocking prompts, not conversational questions
+		local is_blocking = last_non_empty:match("%(y/n%)")
+			or last_non_empty:match("%[y/n%]")
+			or last_non_empty:match("%(Y%)es/%(N%)o")
+			or last_non_empty:match("%[Yes%]:")
 
-	
-
-			local is_idle = last_non_empty:match(">%s*$")
-
-	
-
-		
-
-	
-
-			if is_idle then
-
-	
-
-				M.is_blocked = false
-
-	
-
-				M.process_queue()
-
-	
-
-			else
-
-	
-
-				-- Only auto-insert on actual blocking prompts, not conversational questions
-
-	
-
-				local is_blocking = last_non_empty:match("%(y/n%)")
-
-	
-
-					or last_non_empty:match("%[y/n%]")
-
-	
-
-					or last_non_empty:match("%(Y%)es/%(N%)o")
-
-	
-
-					or last_non_empty:match("%[Yes%]:")
-
-	
-
-		
-
-	
-
-				if is_blocking then
-
-	
-
-					M.is_blocked = true
-
-	
-
-					vim.schedule(function()
-
-	
-
-						if not (M.window and vim.api.nvim_win_is_valid(M.window)) then
-
-	
-
-							M.toggle_modal()
-
-	
-
-						end
-
-	
-
-						vim.cmd("startinsert")
-
-	
-
-					end)
-
-	
-
+		if is_blocking then
+			M.is_blocked = true
+			vim.schedule(function()
+				if not (M.window and vim.api.nvim_win_is_valid(M.window)) then
+					M.toggle_modal()
 				end
-
-	
-
-			end
-
-	
-
+				vim.cmd("startinsert")
+			end)
 		end
+	end
+end
+
 function M.process_queue()
 	if #M.command_queue > 0 and not M.is_blocked then
 		local text = table.remove(M.command_queue, 1)
@@ -205,7 +128,7 @@ function M.start()
 	-- Use termopen to handle terminal emulation and interactivity natively
 	vim.api.nvim_buf_call(M.buffer, function()
 		M.job_id = vim.fn.termopen(cmd, {
-			env = { TERM = "xterm-256color" },
+			env = { TERM = M.config.ui.terminal_name },
 			on_stdout = function(_, data)
 				if not data then
 					return
@@ -231,9 +154,12 @@ function M.start()
 end
 
 function M.send_raw(payload)
-	-- Wrap in Bracketed Paste sequences to ensure multiline blocks are treated as one input
-	local bracketed = "\27[200~" .. payload .. "\27[201~\n"
-	vim.fn.chansend(M.job_id, bracketed)
+	local final_payload = payload
+	-- Only use bracketed paste for multiline messages to avoid confusing simple prompts/mocks
+	if payload:match("\n") then
+		final_payload = "\27[200~" .. payload .. "\27[201~"
+	end
+	vim.fn.chansend(M.job_id, final_payload .. "\n")
 end
 
 function M.send(text)
