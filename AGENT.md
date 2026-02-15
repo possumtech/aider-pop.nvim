@@ -11,9 +11,9 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
     - `test/8_startup_error.sh`
 - [x] **Basic Command Routing**: `:AI:` sends raw text to the Aider process.
     - `test/9_command_routing.sh`
-- [ ] **Mode Switching**: `:AI?` and `:AI!` correctly prefix messages with `/ask` and `/run`.
+- [x] **Mode Switching**: `:AI?` and `:AI!` correctly prefix messages with `/ask` and `/run`.
     - `test/10_mode_prefixes.lua`
-- [ ] **Slash Commands**: `:AI/` sends direct slash commands to Aider.
+- [x] **Slash Commands**: `:AI/` sends direct slash commands to Aider.
     - `test/11_slash_commands.lua`
 
 ## 🏗 Phase 2: Bidirectional Context Sync
