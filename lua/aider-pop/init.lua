@@ -58,4 +58,11 @@ function M.is_running()
 	return M.job_id ~= nil and M.job_id > 0
 end
 
+function M.stop()
+	if M.is_running() then
+		vim.fn.jobstop(M.job_id)
+		M.job_id = nil
+	end
+end
+
 return M

@@ -11,12 +11,14 @@ TOTAL=0
 echo "🚀 Starting aider-pop.nvim test suite..."
 echo "---------------------------------------"
 
-for test_file in test/*.sh; do
+for test_file in test/*.lua; do
     if [ -f "$test_file" ]; then
         ((TOTAL++))
         echo -n "Running $(basename "$test_file")... "
         
-        if bash "$test_file"; then
+        if nvim --headless -n -u NONE \
+            --cmd "set runtimepath+=." \
+            -c "luafile $test_file"; then
             echo "✅ PASS"
         else
             echo "❌ FAIL"
