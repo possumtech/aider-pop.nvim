@@ -19,9 +19,9 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
 ## 🖥 Phase 2: User Interface
 - [x] **The Modal Toggle**: `:AiderPopToggle` opens/closes a floating window showing the Aider buffer.
     - `test/18_modal_ui.lua`
-- [ ] **Modal Default Mode**: The modal opens in Normal mode by default (configurable).
+- [x] **Modal Default Mode**: The modal opens in Normal mode by default (configurable). Handles auto-opening on prompts and idle/blocked state detection.
     - `test/19_modal_mode.lua`
-- [ ] **Statusline Integration**: `require('aider-pop').status()` returns correct symbols based on process state.
+- [x] **Statusline Integration**: `require('aider-pop').status()` returns correct symbols based on process state.
     - `test/20_status_api.lua`
 
 ## 🏗 Phase 3: Bidirectional Context Sync

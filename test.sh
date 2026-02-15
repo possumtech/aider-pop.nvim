@@ -16,10 +16,20 @@ for test_file in test/*.lua; do
         ((TOTAL++))
         echo -n "Running $(basename "$test_file")... "
         
-        # Simple execution. Timeouts are handled internally by Lua via vim.wait
-        if nvim --headless -n -u NONE \
-            --cmd "set runtimepath+=." \
-            -c "luafile $test_file"; then
+        # Robust background killer to ensure we never hang
+        (
+            nvim --headless -n -u NONE --cmd "set runtimepath+=." -c "luafile $test_file" &
+            NVIM_PID=$!
+            # Hard timeout of 20 seconds
+            ( sleep 20; kill -9 $NVIM_PID 2>/dev/null ) &
+            KILLER_PID=$!
+            wait $NVIM_PID
+            EXIT_CODE=$?
+            kill $KILLER_PID 2>/dev/null
+            exit $EXIT_CODE
+        )
+        
+        if [ $? -eq 0 ]; then
             echo "✅ PASS"
         else
             echo "❌ FAIL"

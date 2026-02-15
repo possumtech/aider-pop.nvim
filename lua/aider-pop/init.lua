@@ -13,12 +13,85 @@ M.config = {
 M.job_id = nil
 M.buffer = nil
 M.window = nil
+M.is_blocked = false
+M.command_queue = {}
+M.liveness_timer = nil
+M.last_read_line = 0
 
 -- Define highlights for different modes
 vim.cmd([[
 	highlight default link AiderNormal Normal
 	highlight default AiderTerminal guibg=#ff0000 guifg=#ffffff
 ]])
+
+function M.check_state()
+	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then
+		return
+	end
+
+		local line_count = vim.api.nvim_buf_line_count(M.buffer)
+
+		local last_non_empty = ""
+
+		for i = line_count - 1, 0, -1 do
+
+			local line = vim.api.nvim_buf_get_lines(M.buffer, i, i + 1, false)[1] or ""
+
+			if line:gsub("%s+", "") ~= "" then
+
+				last_non_empty = line
+
+				break
+
+			end
+
+		end
+
+	
+
+		-- The standard Aider prompt in TERM=dumb usually ends with '> '
+
+		local is_idle = last_non_empty:match(">%s*$")
+
+	
+
+		if is_idle then
+
+			M.is_blocked = false
+
+			M.process_queue()
+
+		else
+
+			-- If it ends in a question pattern but not the standard prompt
+
+			if last_non_empty:match("%?%s*$") or last_non_empty:match(":%s*$") then
+
+				M.is_blocked = true
+
+				vim.schedule(function()
+
+					if not (M.window and vim.api.nvim_win_is_valid(M.window)) then
+
+						M.toggle_modal()
+
+					end
+
+					vim.cmd("startinsert")
+
+				end)
+
+			end
+
+		end
+
+	end
+function M.process_queue()
+	if #M.command_queue > 0 and not M.is_blocked then
+		local text = table.remove(M.command_queue, 1)
+		M.send_raw(text)
+	end
+end
 
 function M.setup(opts)
 	local args = (opts and opts.args) and opts.args or M.config.args
@@ -43,29 +116,56 @@ function M.setup(opts)
 	]])
 end
 
+function M.start()
+	if M.job_id then
+		return
+	end
+
+	if vim.fn.executable(M.config.binary) ~= 1 then
+		vim.notify("aider-pop: aider binary not found: " .. M.config.binary, vim.log.levels.ERROR)
+		return
+	end
+
+	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then
+		M.buffer = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_buf_set_name(M.buffer, "aider-pop-terminal")
+	end
+
+	local cmd = { M.config.binary }
+	for _, arg in ipairs(M.config.args) do
+		table.insert(cmd, arg)
+	end
+
 	-- Use termopen to handle terminal emulation and interactivity natively
 	vim.api.nvim_buf_call(M.buffer, function()
 		M.job_id = vim.fn.termopen(cmd, {
 			env = { TERM = "dumb" },
 			on_stdout = function(_, data)
-				if not data then return end
-				for _, line in ipairs(data) do
-					-- Look for patterns like [Yes]: or (Y)es/(N)o at the end of lines
-					if line:match("%[Yes%]:%s*$") or line:match("%(Y%)es/%(N%)o") or line:match("%[y/n%]:%s*$") then
-						vim.schedule(function()
-							if not (M.window and vim.api.nvim_win_is_valid(M.window)) then
-								M.toggle_modal()
-							end
-							vim.cmd("startinsert")
-						end)
-					end
+				if not data then
+					return
 				end
+
+				-- Reset/Start liveness timer to detect when Aider has stopped printing
+				if M.liveness_timer then
+					vim.fn.timer_stop(M.liveness_timer)
+				end
+
+				M.liveness_timer = vim.fn.timer_start(200, function()
+					M.check_state()
+				end)
 			end,
 			on_exit = function(_, exit_code)
 				M.job_id = nil
+				if M.liveness_timer then
+					vim.fn.timer_stop(M.liveness_timer)
+				end
 			end,
 		})
 	end)
+end
+
+function M.send_raw(payload)
+	vim.fn.chansend(M.job_id, payload .. "\n")
 end
 
 function M.send(text)
@@ -74,15 +174,22 @@ function M.send(text)
 		return
 	end
 
+	-- If blocked, queue the command instead of sending it
+	if M.is_blocked then
+		table.insert(M.command_queue, text)
+		vim.notify("aider-pop: Aider is blocked, command queued", vim.log.levels.WARN)
+		return
+	end
+
 	local payload = text
 	local first_char = text:sub(1, 1)
 	local second_char = text:sub(2, 2)
 
 	-- Only treat as prefix if followed by space or it's the only char (for slash commands)
-	if (second_char == " " or second_char == "") then
+	if second_char == " " or second_char == "" then
 		if first_char == "?" then
 			payload = "/ask " .. text:sub(2):gsub("^%s+", "")
-			-- Auto-open modal for questions
+			-- Questions always open modal
 			vim.schedule(function()
 				if not (M.window and vim.api.nvim_win_is_valid(M.window)) then
 					M.toggle_modal()
@@ -90,7 +197,7 @@ function M.send(text)
 			end)
 		elseif first_char == "!" then
 			payload = "/run " .. text:sub(2):gsub("^%s+", "")
-			-- Auto-open modal for runs as they often prompt
+			-- Runs always open modal
 			vim.schedule(function()
 				if not (M.window and vim.api.nvim_win_is_valid(M.window)) then
 					M.toggle_modal()
@@ -103,15 +210,42 @@ function M.send(text)
 		end
 	end
 
-	vim.fn.chansend(M.job_id, payload .. "\n")
+	M.send_raw(payload)
 end
 
 function M.is_running()
 	return M.job_id ~= nil and M.job_id > 0
 end
 
+function M.status()
+	if not M.is_running() then
+		return ""
+	end
+
+	local line_count = 0
+	if M.buffer and vim.api.nvim_buf_is_valid(M.buffer) then
+		line_count = vim.api.nvim_buf_line_count(M.buffer)
+	end
+
+	-- If modal is open, we are "reading" it now
+	if M.window and vim.api.nvim_win_is_valid(M.window) then
+		M.last_read_line = line_count
+		-- Return a "thinking" indicator if timer is active, or just static bot
+		return "🤖"
+	end
+
+	if line_count > M.last_read_line then
+		return "🤖"
+	end
+
+	return ""
+end
+
 function M.toggle_modal()
 	if M.window and vim.api.nvim_win_is_valid(M.window) then
+		if M.buffer and vim.api.nvim_buf_is_valid(M.buffer) then
+			M.last_read_line = vim.api.nvim_buf_line_count(M.buffer)
+		end
 		vim.api.nvim_win_close(M.window, true)
 		M.window = nil
 	else
@@ -135,16 +269,16 @@ function M.toggle_modal()
 			title = " 🤖 AIDER (Normal) ",
 			title_pos = "center",
 		})
-		
+
 		-- Set initial highlight
 		vim.api.nvim_win_set_option(M.window, "winhighlight", "Normal:AiderNormal")
 
 		-- Map Esc to return to Normal mode specifically in the Aider terminal buffer
-		vim.api.nvim_buf_set_keymap(M.buffer, 't', '<Esc>', [[<C-\><C-n>]], {noremap = true, silent = true})
+		vim.api.nvim_buf_set_keymap(M.buffer, "t", "<Esc>", [[<C-\><C-n>]], { noremap = true, silent = true })
 
 		-- Autocommands to change title and background on mode switch
 		local group = vim.api.nvim_create_augroup("AiderPopMode", { clear = true })
-		
+
 		vim.api.nvim_create_autocmd("TermEnter", {
 			group = group,
 			buffer = M.buffer,
