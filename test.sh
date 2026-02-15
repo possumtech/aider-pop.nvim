@@ -16,7 +16,7 @@ for test_file in test/*.lua; do
         ((TOTAL++))
         echo -n "Running $(basename "$test_file")... "
         
-        if nvim --headless -n -u NONE \
+        if perl -e 'alarm shift; exec @ARGV' 10 nvim --headless -n -u NONE \
             --cmd "set runtimepath+=." \
             -c "luafile $test_file"; then
             echo "✅ PASS"

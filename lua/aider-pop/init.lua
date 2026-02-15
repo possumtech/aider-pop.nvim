@@ -9,6 +9,9 @@ M.job_id = nil
 
 function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+	if opts and opts.args then
+		M.config.args = opts.args
+	end
 	M.start()
 
 	vim.api.nvim_create_user_command("AI", function(cmd_opts)
@@ -51,7 +54,19 @@ function M.send(text)
 		vim.notify("aider-pop: Aider is not running", vim.log.levels.ERROR)
 		return
 	end
-	vim.fn.chansend(M.job_id, text .. "\n")
+
+	local payload = text
+	if text:sub(1, 1) == "?" then
+		payload = "/ask " .. text:sub(2):gsub("^%s+", "")
+	elseif text:sub(1, 1) == "!" then
+		payload = "/run " .. text:sub(2):gsub("^%s+", "")
+	elseif text:sub(1, 1) == "/" then
+		payload = "/" .. text:sub(2):gsub("^%s+", "")
+	elseif text:sub(1, 1) == ":" then
+		payload = "/architect " .. text:sub(2):gsub("^%s+", "")
+	end
+
+	vim.fn.chansend(M.job_id, payload .. "\n")
 end
 
 function M.is_running()
