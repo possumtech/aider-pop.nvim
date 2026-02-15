@@ -35,7 +35,7 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
     - `test/15_auto_drop_nvim.lua`
 - [ ] **Aider -> Neovim (/drop)**: Aider dropping a file via `/drop` (parsed from output) closes the corresponding buffer in Neovim.
     - `test/16_auto_drop_aider.lua`
-- [ ] **Visual Selection**: Visual mode commands include the selected text as context.
+- [x] **Visual Selection**: Visual mode commands include the selected text as context.
     - `test/17_visual_context.lua`
 
 ## 🔗 Phase 4: Extensions & Hooks

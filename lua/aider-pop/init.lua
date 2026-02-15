@@ -156,8 +156,17 @@ function M.setup(opts)
 	M.start()
 
 	vim.api.nvim_create_user_command("AI", function(cmd_opts)
-		M.send(cmd_opts.args)
-	end, { nargs = "*" })
+		local text = cmd_opts.args
+		if cmd_opts.range > 0 then
+			-- Get visual selection
+			local start_line = cmd_opts.line1
+			local end_line = cmd_opts.line2
+			local lines = vim.api.nvim_buf_get_lines(0, start_line - 1, end_line, false)
+			local selection = table.concat(lines, "\n")
+			text = text .. "\nSelection:\n" .. selection
+		end
+		M.send(text)
+	end, { nargs = "*", range = true })
 
 	vim.api.nvim_create_user_command("AiderPopToggle", function()
 		M.toggle_modal()
