@@ -17,7 +17,7 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
     - `test/11_slash_commands.lua`
 
 ## 🖥 Phase 2: User Interface
-- [ ] **The Modal Toggle**: `:AiderPopToggle` opens/closes a floating window showing the Aider buffer.
+- [x] **The Modal Toggle**: `:AiderPopToggle` opens/closes a floating window showing the Aider buffer.
     - `test/18_modal_ui.lua`
 - [ ] **Modal Default Mode**: The modal opens in Normal mode by default (configurable).
     - `test/19_modal_mode.lua`

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Aider Pop Test Runner
-# Runs all shell scripts in /test
+# Runs all lua scripts in /test
 
 set -e
 
@@ -16,7 +16,8 @@ for test_file in test/*.lua; do
         ((TOTAL++))
         echo -n "Running $(basename "$test_file")... "
         
-        if perl -e 'alarm shift; exec @ARGV' 10 nvim --headless -n -u NONE \
+        # Simple execution. Timeouts are handled internally by Lua via vim.wait
+        if nvim --headless -n -u NONE \
             --cmd "set runtimepath+=." \
             -c "luafile $test_file"; then
             echo "✅ PASS"

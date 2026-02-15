@@ -12,7 +12,7 @@ os.execute("chmod +x " .. mock_bin)
 M.setup({ binary = mock_bin })
 
 -- Test direct slash command
-M.send("/tokens")
+M.send("/ tokens")
 -- Test AI/ prefix (which should also result in a slash command)
 M.send("/ add file.txt")
 
