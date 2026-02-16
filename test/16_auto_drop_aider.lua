@@ -1,12 +1,24 @@
 local M = require('aider-pop')
+local job = require('aider-pop.job')
 local mock_bin = './aider_mock_16.sh'
 
--- Create mock binary that outputs a /drop command
+-- Create file first
+local test_file = "file.lua"
+local tf = io.open(test_file, "w")
+tf:write("-- test")
+tf:close()
+
+-- Create mock binary
 local f = io.open(mock_bin, "w")
 f:write([=[#!/bin/bash
+# Startup: file is in chat
+echo "Files in chat:"
+echo "  file.lua"
+echo ""
 printf "architect> "
-while read line; do
-  if [[ "$line" == *"/ls"* ]]; then
+
+while read -r line; do
+  if [[ "$line" == *"/drop file.lua"* ]]; then
     echo "Readonly: "
     echo "Editable: "
     printf "architect> "
@@ -23,33 +35,26 @@ M.setup({
     sync = { active_buffers = true }
 })
 
--- Create and open file.lua
-local tf = io.open("file.lua", "w")
-tf:write("-- test")
-tf:close()
-vim.cmd("edit file.lua")
+-- Wait for initial sync
+vim.wait(10000, function() 
+    return M.is_idle and next(job.repo_files) ~= nil 
+end)
 
--- Wait for initial idle
-vim.wait(5000, function() return M.is_idle end)
+-- Ensure file is open
+vim.cmd("edit " .. test_file)
 
--- Trigger the /drop from aider
+-- Trigger /drop
 M.send("/drop file.lua")
 
--- Verify that Neovim closed file.lua
-local ok = vim.wait(10000, function()
-    local buffers = vim.api.nvim_list_bufs()
-    for _, b in ipairs(buffers) do
-        local name = vim.api.nvim_buf_get_name(b)
-        if name:match("file.lua") and vim.api.nvim_buf_is_valid(b) then 
-            return false 
-        end
-    end
-    return true
+-- Verify closed
+local ok = vim.wait(15000, function()
+    local abs_path = vim.loop.fs_realpath(test_file)
+    return vim.fn.bufexists(abs_path) == 0
 end, 200)
 
 M.stop()
 os.remove(mock_bin)
-os.remove("file.lua")
+os.remove(test_file)
 
 if ok then
     print("✅ Milestone 16 passed")

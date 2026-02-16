@@ -57,6 +57,11 @@ function M.setup(opts)
 		vim.o.statusline = vim.o.statusline .. " %{v:lua.require('aider-pop').status()}"
 	end
 
+	-- Trigger initial sync to populate whitelist
+	vim.defer_fn(function()
+		M.send("/ls")
+	end, 1000)
+
 	local group = vim.api.nvim_create_augroup("AiderPopSync", { clear = true })
 	vim.api.nvim_create_autocmd("BufWinEnter", {
 		group = group,
@@ -70,9 +75,10 @@ function M.setup(opts)
 			local real = vim.loop.fs_realpath(file)
 			if not real then return end
 			
-			file = vim.fn.fnamemodify(real, ":.")
+			-- Only add if Aider has this file in its project whitelist
+			if not job.repo_files[real] then return end
 			
-			-- Don't add Aider's own buffer
+			file = vim.fn.fnamemodify(real, ":.")
 			if job.buffer and bufnr == job.buffer then return end
 			
 			M.send("/add " .. file)
@@ -84,16 +90,17 @@ function M.setup(opts)
 		callback = function(ev)
 			if not M.config.sync.active_buffers then return end
 			local bufnr = ev.buf
-			
 			local bt = vim.api.nvim_buf_get_option(bufnr, "buftype")
 			if bt ~= "" then return end
-			
 			local file = vim.api.nvim_buf_get_name(bufnr)
 			if file == "" or file:match("^aider%-pop://") then return end
 			if file == "" then file = ev.file end
 			if file == "" then return end
 			
-			file = vim.fn.fnamemodify(file, ":.")
+			local real = vim.loop.fs_realpath(file)
+			if not real then return end
+			
+			file = vim.fn.fnamemodify(real, ":.")
 			if job.buffer and bufnr == job.buffer then return end
 			
 			M.send("/drop " .. file)
@@ -126,10 +133,6 @@ function M.send(text)
 	
 	if job.is_idle and not job.is_blocked then 
 		job.send_raw(payload) 
-		-- If it was a sync command, follow up with /ls
-		if payload:match("^/add") or payload:match("^/drop") then
-			job.send_raw("/ls")
-		end
 	else 
 		table.insert(job.command_queue, payload) 
 	end
