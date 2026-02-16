@@ -66,7 +66,7 @@ function M.setup(opts)
 	vim.api.nvim_create_autocmd("BufWinEnter", {
 		group = group,
 		callback = function(ev)
-			if not M.config.sync.active_buffers then return end
+			if not M.config.sync.active_buffers or job.is_syncing then return end
 			local bufnr = ev.buf
 			if vim.api.nvim_buf_get_option(bufnr, "buftype") ~= "" then return end
 			local file = vim.api.nvim_buf_get_name(bufnr)
@@ -76,7 +76,8 @@ function M.setup(opts)
 			if not real then return end
 			
 			-- Only add if Aider has this file in its project whitelist
-			if not job.repo_files[real] then return end
+			-- AND it's not already in the chat
+			if not job.repo_files[real] or job.chat_files[real] then return end
 			
 			file = vim.fn.fnamemodify(real, ":.")
 			if job.buffer and bufnr == job.buffer then return end
@@ -88,7 +89,7 @@ function M.setup(opts)
 	vim.api.nvim_create_autocmd("BufDelete", {
 		group = group,
 		callback = function(ev)
-			if not M.config.sync.active_buffers then return end
+			if not M.config.sync.active_buffers or job.is_syncing then return end
 			local bufnr = ev.buf
 			local bt = vim.api.nvim_buf_get_option(bufnr, "buftype")
 			if bt ~= "" then return end

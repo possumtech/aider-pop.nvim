@@ -11,7 +11,8 @@ M.last_sync_line = 0
 M.last_answer = ""
 M.command_queue = {}
 M.config = {}
-M.repo_files = {} -- Whitelist of files Aider knows about
+M.repo_files = {} -- Whitelist of files in the project
+M.chat_files = {} -- Files currently in the chat (Editable or Readonly)
 
 function M.strip_ansi(text)
 	if not text then return "" end
@@ -64,6 +65,18 @@ end
 M.is_syncing = false
 M.last_sync_content = ""
 
+function M.resolve_path(p)
+	if not p or p == "" then return nil end
+	-- Strip leading @ if present
+	local clean = p:gsub("^@", "")
+	-- Try direct resolution first (handles relative paths from Aider)
+	local r = vim.loop.fs_realpath(clean)
+	if r then return r end
+	-- If that fails, Aider might be giving paths relative to repo root but we are in a subdir
+	-- However, usually Aider runs in repo root. 
+	return nil
+end
+
 function M.capture_sync()
 	if M.is_syncing then return end
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
@@ -84,8 +97,8 @@ function M.capture_sync()
 	local in_file_list = false
 	local in_repo_list = false
 	local empty_list_detected = false
-	local current_files = {}
-	local repo_files = {}
+	local current_chat_files = {}
+	local current_repo_files = {}
 	local found_sync_data = false
 
 	for _, line in ipairs(lines) do
@@ -93,16 +106,16 @@ function M.capture_sync()
 		local clean_l = l:gsub("^[^>]*>%s*", ""):gsub(">%s*$", ""):gsub("^%s*", ""):gsub("%s*$", "")
 		
 		if clean_l:match("^Read%-only files:") or clean_l:match("^Files in chat:") then
-			current_files = {} 
+			current_chat_files = {} 
 			in_file_list, in_repo_list = true, false
 			found_sync_data = true
 		elseif clean_l:match("^Repo files not in the chat:") then
-			repo_files = {} 
+			current_repo_files = {} 
 			in_file_list, in_repo_list = false, true
 			found_sync_data = true
 		elseif clean_l:match("^No files in chat") then
 			in_file_list, in_repo_list = false, false
-			current_files = {}
+			current_chat_files = {}
 			empty_list_detected = true
 			found_sync_data = true
 		else
@@ -112,35 +125,28 @@ function M.capture_sync()
 			if readonly_match or editable_match then
 				found_sync_data = true
 				if readonly_match then 
-					repo_files = {}
-					if readonly_match ~= "" then
-						for f in readonly_match:gmatch("%S+") do 
-							local path = f:gsub("^%.%.%/[%.%.%/]*", ""):gsub("^%/", "")
-							local r = vim.loop.fs_realpath(path)
-							if r then repo_files[r] = true end
-						end 
-					end
+					current_chat_files = {} 
+					for f in readonly_match:gmatch("%S+") do 
+						local r = M.resolve_path(f)
+						if r then current_chat_files[r] = true end
+					end 
 				end
 				if editable_match then 
-					current_files = {}
-					if editable_match ~= "" then
-						for f in editable_match:gmatch("%S+") do 
-							local path = f:gsub("^%.%.%/[%.%.%/]*", ""):gsub("^%/", "")
-							local r = vim.loop.fs_realpath(path)
-							if r then current_files[r] = true end
-						end 
-					end
+					if not readonly_match then current_chat_files = {} end
+					for f in editable_match:gmatch("%S+") do 
+						local r = M.resolve_path(f)
+						if r then current_chat_files[r] = true end
+					end 
 				end
 			elseif in_file_list or in_repo_list then
 				local file = clean_l:gsub("^%s*", "")
 				if file ~= "" and not file:match("^architect>") and not file:match("^/") then
-					local clean_f = file:gsub("^%.%.%/[%.%.%/]*", ""):gsub("^%/", "")
-					local real = vim.loop.fs_realpath(clean_f)
-					if real then
+					local r = M.resolve_path(file)
+					if r then
 						if in_file_list then 
-							current_files[real] = true 
+							current_chat_files[r] = true 
 						else 
-							repo_files[real] = true 
+							current_repo_files[r] = true 
 						end
 					end
 				elseif file:match("^architect>") then
@@ -150,12 +156,15 @@ function M.capture_sync()
 		end
 	end
 
-	for k, v in pairs(repo_files) do M.repo_files[k] = v end
-	for k, v in pairs(current_files) do M.repo_files[k] = v end
+	-- Update global state
+	M.chat_files = current_chat_files
+	-- repo_files should be a superset of everything we've seen in the project
+	for k, v in pairs(current_repo_files) do M.repo_files[k] = v end
+	for k, v in pairs(current_chat_files) do M.repo_files[k] = v end
 
-	if found_sync_data or empty_list_detected or next(current_files) ~= nil then
+	if found_sync_data or empty_list_detected or next(current_chat_files) ~= nil then
 		vim.schedule(function()
-			for real_path, _ in pairs(current_files) do
+			for real_path, _ in pairs(current_chat_files) do
 				local is_open = false
 				for _, b in ipairs(vim.api.nvim_list_bufs()) do
 					if vim.api.nvim_buf_is_valid(b) then
@@ -181,7 +190,7 @@ function M.capture_sync()
 					local name = vim.api.nvim_buf_get_name(b)
 					if bt == "" and name ~= "" and not name:match("^aider%-pop://") then
 						local b_real = vim.loop.fs_realpath(name)
-						if b_real and not current_files[b_real] then
+						if b_real and not current_chat_files[b_real] then
 							vim.api.nvim_buf_delete(b, { force = true })
 						end
 					end
@@ -193,6 +202,7 @@ function M.capture_sync()
 		M.is_syncing = false
 	end
 end
+
 
 
 
