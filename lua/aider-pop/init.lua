@@ -54,7 +54,7 @@ function M.setup(opts)
 	]])
 
 	if M.config.ui.statusline then
-		vim.o.statusline = vim.o.statusline .. " %{v:lua.require('aider-pop').status()}"
+		vim.o.statusline = vim.o.statusline .. "%= %{v:lua.require('aider-pop').status()}"
 	end
 
 	-- Trigger initial sync to populate whitelist
