@@ -13,6 +13,10 @@ M.config = {
 		active_buffers = false,
 	},
 	pop_on_completion = false,
+	hooks = {
+		on_start = nil,
+		on_stop = nil,
+	}
 }
 
 function M.setup(opts)

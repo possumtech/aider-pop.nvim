@@ -244,6 +244,10 @@ function M.start(config, on_state_change)
 		})
 	end)
 	M.capture_sync()
+	if M.config.hooks and M.config.hooks.on_start then
+		os.execute(M.config.hooks.on_start)
+	end
+	vim.api.nvim_exec_autocmds("User", { pattern = "AiderStart", modeline = false })
 	M.timer = vim.fn.timer_start(200, function() pcall(M.check_state, on_state_change) end, { ["repeat"] = -1 })
 end
 
@@ -257,6 +261,11 @@ end
 function M.stop()
 	if M.job_id then vim.fn.jobstop(M.job_id) end
 	if M.timer then vim.fn.timer_stop(M.timer) end
+	M.is_idle = false
+	if M.config.hooks and M.config.hooks.on_stop then
+		os.execute(M.config.hooks.on_stop)
+	end
+	vim.api.nvim_exec_autocmds("User", { pattern = "AiderStop", modeline = false })
 end
 
 return M

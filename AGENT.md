@@ -39,7 +39,7 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
     - `test/16_auto_drop_aider.lua`
 
 ## 🔗 Phase 4: Extensions & Hooks
-- [ ] **User Autocommands**: `AiderStart` and `AiderStop` fire with unique IDs.
+- [x] **User Autocommands**: `AiderStart` and `AiderStop` fire with unique IDs.
     - `test/21_autocmd_events.lua`
-- [ ] **System Hooks**: Configured shell commands execute on start/stop.
+- [x] **System Hooks**: Configured shell commands execute on start/stop.
     - `test/22_system_hooks.lua`

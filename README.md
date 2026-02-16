@@ -59,6 +59,10 @@ require('aider-pop').setup({
     statusline = false,
   },
   pop_on_completion = false, -- Automatically pop up when Aider finishes a task
+  hooks = {
+    on_start = nil, -- Shell command to run when Aider starts
+    on_stop = nil,  -- Shell command to run when Aider stops
+  }
 })
 ```
 
@@ -87,4 +91,19 @@ sections = {
 #### Manual Statusline
 ```lua
 vim.o.statusline = vim.o.statusline .. "%= %{v:lua.require('aider-pop').status()}"
+```
+
+### Events
+The plugin fires `User` autocommands that you can hook into:
+- `AiderStart`: Fired when the Aider process has successfully started.
+- `AiderStop`: Fired when the Aider process has stopped.
+
+Example:
+```lua
+vim.api.nvim_create_autocmd("User", {
+    pattern = "AiderStart",
+    callback = function()
+        print("Aider is ready!")
+    end
+})
 ```
