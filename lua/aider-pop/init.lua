@@ -2,18 +2,34 @@ local M = {}
 
 M.config = {
 	binary = "aider",
-	args = { "--no-gitignore", "--yes-always" },
-	ui = { width = 0.8, height = 0.8, border = "rounded", terminal_name = "dumb" },
+	args = { "--no-gitignore", "--yes-always", "--no-pretty" },
+	ui = { width = 0.8, height = 0.8, border = "rounded", terminal_name = "xterm-256color" },
 }
 
 M.job_id, M.buffer, M.window, M.is_blocked, M.is_idle, M.last_read_line = nil, nil, nil, false, false, 0
 M.command_queue = {}
 
+-- Robust ANSI stripper to handle xterm noise
+function M.strip_ansi(text)
+	if not text then return "" end
+	return text
+		:gsub("\27%[[0-9;]*m", "") -- Colors
+		:gsub("\27%[[0-9;]*[A-K]", "") -- Cursor/Clear
+		:gsub("\27%[[0-9;]*[mG]", "") -- More cursor
+		:gsub("\r", "") -- Carriage returns
+end
+
 function M.check_state()
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
 	local lines = vim.api.nvim_buf_get_lines(M.buffer, 0, -1, false)
 	local last = ""
-	for i = #lines, 1, -1 do if lines[i] ~= "" then last = lines[i] break end end
+	for i = #lines, 1, -1 do
+		local clean = M.strip_ansi(lines[i]):gsub("%s+$", "")
+		if clean ~= "" then
+			last = clean
+			break
+		end
+	end
 
 	if last:match(">%s*$") then
 		M.is_idle, M.is_blocked = true, false
@@ -22,12 +38,20 @@ function M.check_state()
 		M.is_blocked, M.is_idle = true, false
 		if not (M.window and vim.api.nvim_win_is_valid(M.window)) then M.toggle_modal() end
 		vim.cmd("startinsert")
-	else M.is_idle = false end
+	else
+		M.is_idle = false
+	end
 end
 
 function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
 	M.start()
+
+	vim.cmd([[
+		highlight default AiderNormal guibg=#000080 guifg=#ffffff
+		highlight default AiderTerminal guibg=NONE guifg=NONE
+	]])
+
 	vim.api.nvim_create_user_command("AI", function(c)
 		local text = c.args
 		if c.range > 0 then
@@ -36,7 +60,9 @@ function M.setup(opts)
 		end
 		M.send(text)
 	end, { nargs = "*", range = true })
+
 	vim.api.nvim_create_user_command("AiderPopToggle", function() M.toggle_modal() end, {})
+
 	vim.cmd([[
 		cnoreabbrev <expr> AI: (getcmdtype() == ':' && getcmdline() ==# 'AI:') ? 'AI :' : 'AI:'
 		cnoreabbrev <expr> AI? (getcmdtype() == ':' && getcmdline() ==# 'AI?') ? 'AI ?' : 'AI?'
@@ -48,7 +74,8 @@ end
 function M.start()
 	if M.job_id then return end
 	if vim.fn.executable(M.config.binary) ~= 1 then
-		vim.notify("aider-pop: aider binary not found: " .. M.config.binary, vim.log.levels.ERROR)
+		local msg = "aider-pop: aider binary not found: " .. M.config.binary
+		vim.notify(msg, vim.log.levels.ERROR)
 		return
 	end
 	M.buffer = M.buffer or vim.api.nvim_create_buf(false, true)
@@ -62,7 +89,10 @@ function M.start()
 	M.timer = vim.fn.timer_start(200, function() pcall(M.check_state) end, { ["repeat"] = -1 })
 end
 
-function M.send_raw(p) M.is_idle = false vim.fn.chansend(M.job_id, p .. "\n") end
+function M.send_raw(p)
+	M.is_idle = false
+	vim.fn.chansend(M.job_id, p .. "\n")
+end
 
 function M.send(text)
 	local map = { ["?"] = "/ask ", ["!"] = "/run ", [":"] = "/architect ", ["/"] = "/" }
@@ -74,9 +104,7 @@ function M.send(text)
 	if M.is_idle and not M.is_blocked then M.send_raw(payload) else table.insert(M.command_queue, payload) end
 end
 
-function M.is_running()
-	return M.job_id ~= nil and M.job_id > 0
-end
+function M.is_running() return M.job_id ~= nil and M.job_id > 0 end
 
 function M.toggle_modal()
 	if M.window and vim.api.nvim_win_is_valid(M.window) then
@@ -89,6 +117,27 @@ function M.toggle_modal()
 			relative = "editor", width = w, height = h, row = math.floor((vim.o.lines - h) / 2),
 			col = math.floor((vim.o.columns - w) / 2), border = M.config.ui.border, style = "minimal", title = " 🤖 AIDER ", title_pos = "center",
 		})
+		
+		vim.api.nvim_win_set_option(M.window, "winhighlight", "Normal:AiderNormal")
+		
+		local group = vim.api.nvim_create_augroup("AiderPopHighlights", { clear = true })
+		vim.api.nvim_create_autocmd("TermEnter", {
+			group = group, buffer = M.buffer,
+			callback = function() 
+				if M.window and vim.api.nvim_win_is_valid(M.window) then 
+					vim.api.nvim_win_set_option(M.window, "winhighlight", "Normal:AiderTerminal") 
+				end
+			end
+		})
+		vim.api.nvim_create_autocmd("TermLeave", {
+			group = group, buffer = M.buffer,
+			callback = function() 
+				if M.window and vim.api.nvim_win_is_valid(M.window) then 
+					vim.api.nvim_win_set_option(M.window, "winhighlight", "Normal:AiderNormal") 
+				end
+			end
+		})
+
 		vim.api.nvim_buf_set_keymap(M.buffer, "t", "<Esc>", [[<C-\><C-n>]], { noremap = true, silent = true })
 		vim.api.nvim_buf_set_keymap(M.buffer, "n", "<Esc>", [[<cmd>AiderPopToggle<cr>]], { noremap = true, silent = true })
 		vim.cmd("stopinsert")
