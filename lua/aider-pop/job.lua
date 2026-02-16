@@ -61,12 +61,25 @@ function M.capture_answer()
 	end
 end
 
+M.is_syncing = false
+M.last_sync_content = ""
+
 function M.capture_sync()
+	if M.is_syncing then return end
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
 	if not M.config or not M.config.sync or not M.config.sync.active_buffers then return end
 	
+	-- Only sync if we are idle (saw a prompt recently)
+	if not M.is_idle then return end
+
 	local lines = vim.api.nvim_buf_get_lines(M.buffer, 0, -1, false)
 	if #lines == 0 then return end
+	
+	local current_content = table.concat(lines, "\n")
+	if current_content == M.last_sync_content then return end
+	M.last_sync_content = current_content
+
+	M.is_syncing = true
 
 	local in_file_list = false
 	local in_repo_list = false
@@ -80,11 +93,11 @@ function M.capture_sync()
 		local clean_l = l:gsub("^[^>]*>%s*", ""):gsub(">%s*$", ""):gsub("^%s*", ""):gsub("%s*$", "")
 		
 		if clean_l:match("^Read%-only files:") or clean_l:match("^Files in chat:") then
-			if not in_file_list then current_files = {} end
+			current_files = {} 
 			in_file_list, in_repo_list = true, false
 			found_sync_data = true
 		elseif clean_l:match("^Repo files not in the chat:") then
-			if not in_repo_list then repo_files = {} end
+			repo_files = {} 
 			in_file_list, in_repo_list = false, true
 			found_sync_data = true
 		elseif clean_l:match("^No files in chat") then
@@ -124,7 +137,11 @@ function M.capture_sync()
 					local clean_f = file:gsub("^%.%.%/[%.%.%/]*", ""):gsub("^%/", "")
 					local real = vim.loop.fs_realpath(clean_f)
 					if real then
-						if in_file_list then current_files[real] = true else repo_files[real] = true end
+						if in_file_list then 
+							current_files[real] = true 
+						else 
+							repo_files[real] = true 
+						end
 					end
 				elseif file:match("^architect>") then
 					in_file_list, in_repo_list = false, false
@@ -170,9 +187,14 @@ function M.capture_sync()
 					end
 				end
 			end
+			M.is_syncing = false
 		end)
+	else
+		M.is_syncing = false
 	end
 end
+
+
 
 
 
@@ -237,7 +259,7 @@ function M.start(config, on_state_change)
 		M.job_id = vim.fn.termopen({ config.binary, unpack(config.args) }, {
 			env = { TERM = config.ui.terminal_name },
 			on_stdout = function()
-				M.capture_sync()
+				if M.is_idle then M.capture_sync() end
 			end,
 			on_exit = function() M.job_id, M.is_idle = nil, false end,
 		})
