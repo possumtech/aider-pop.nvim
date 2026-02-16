@@ -21,9 +21,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
     { "<leader>a", "<cmd>AiderPopToggle<cr>", desc = "Toggle Aider" },
   },
   opts = {
-    ui = {
-      statusline = true, -- Automatically add to your statusline
-    }
+    statusline = true, -- Automatically add to your statusline
   }
 }
 ```
@@ -52,19 +50,15 @@ Default options:
 require('aider-pop').setup({
   binary = "aider",
   args = { "--no-gitignore", "--yes-always", "--no-pretty" },
-  ui = {
-    width = 0.8,
-    height = 0.8,
-    border = "rounded",
-    statusline = false,
-  },
+  width = 0.8,
+  height = 0.8,
+  border = "rounded",
+  statusline = false,
   sync_buffers = false, -- Auto /add and /drop files as you open/close them in Neovim
   pop_on_completion = false, -- Automatically pop up when Aider finishes a task
   resume_session = true,     -- Automatically open a file from the chat on startup
-  hooks = {
-    on_start = nil, -- Shell command to run when Aider starts
-    on_stop = nil,  -- Shell command to run when Aider stops
-  }
+  on_start = nil, -- Shell command to run when Aider starts
+  on_stop = nil,  -- Shell command to run when Aider stops
 })
 ```
 

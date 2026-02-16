@@ -10,10 +10,10 @@ function M.toggle_modal(job, config)
 		vim.cmd("redrawstatus")
 	elseif job.buffer and vim.api.nvim_buf_is_valid(job.buffer) then
 		job.last_read_line = job.get_last_content_line()
-		local w, h = math.floor(vim.o.columns * config.ui.width), math.floor(vim.o.lines * config.ui.height)
+		local w, h = math.floor(vim.o.columns * config.width), math.floor(vim.o.lines * config.height)
 		M.window = vim.api.nvim_open_win(job.buffer, true, {
 			relative = "editor", width = w, height = h, row = math.floor((vim.o.lines - h) / 2),
-			col = math.floor((vim.o.columns - w) / 2), border = config.ui.border, style = "minimal", title = " 🤖 AIDER ", title_pos = "center",
+			col = math.floor((vim.o.columns - w) / 2), border = config.border, style = "minimal", title = " 🤖 AIDER ", title_pos = "center",
 		})
 		vim.api.nvim_win_set_option(M.window, "winhighlight", "Normal:AiderNormal")
 		

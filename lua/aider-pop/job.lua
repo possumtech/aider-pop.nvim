@@ -269,7 +269,7 @@ function M.start(config, on_state_change)
 	vim.api.nvim_buf_set_name(M.buffer, "aider-pop://" .. config.binary)
 	vim.api.nvim_buf_call(M.buffer, function()
 		M.job_id = vim.fn.termopen({ config.binary, unpack(config.args) }, {
-			env = { TERM = config.ui.terminal_name },
+			env = { TERM = config.terminal_name },
 			on_stdout = function()
 				if M.is_idle then M.capture_sync() end
 			end,
@@ -277,8 +277,8 @@ function M.start(config, on_state_change)
 		})
 	end)
 	M.capture_sync(true)
-	if M.config.hooks and M.config.hooks.on_start then
-		os.execute(M.config.hooks.on_start)
+	if M.config.on_start then
+		os.execute(M.config.on_start)
 	end
 	vim.api.nvim_exec_autocmds("User", { pattern = "AiderStart", modeline = false })
 	M.timer = vim.fn.timer_start(200, function() pcall(M.check_state, on_state_change) end, { ["repeat"] = -1 })
@@ -295,8 +295,8 @@ function M.stop()
 	if M.job_id then vim.fn.jobstop(M.job_id) end
 	if M.timer then vim.fn.timer_stop(M.timer) end
 	M.is_idle = false
-	if M.config.hooks and M.config.hooks.on_stop then
-		os.execute(M.config.hooks.on_stop)
+	if M.config.on_stop then
+		os.execute(M.config.on_stop)
 	end
 	vim.api.nvim_exec_autocmds("User", { pattern = "AiderStop", modeline = false })
 end

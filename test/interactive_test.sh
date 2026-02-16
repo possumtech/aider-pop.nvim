@@ -13,7 +13,7 @@ vim.opt.runtimepath:append("$REPO_ROOT")
 -- Setup the plugin
 require('aider-pop').setup({
     args = { "--no-gitignore" },
-    ui = { statusline = true },
+    statusline = true,
     sync_buffers = true
 })
 

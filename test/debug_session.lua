@@ -3,7 +3,7 @@ local job = require('aider-pop.job')
 
 M.setup({
     sync_buffers = true,
-    ui = { statusline = true }
+    statusline = true
 })
 
 -- Reset log

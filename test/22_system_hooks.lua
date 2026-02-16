@@ -9,10 +9,8 @@ os.remove(start_hook_file)
 os.remove(stop_hook_file)
 
 M.setup({
-    hooks = {
-        on_start = "touch " .. start_hook_file,
-        on_stop = "touch " .. stop_hook_file,
-    }
+    on_start = "touch " .. start_hook_file,
+    on_stop = "touch " .. stop_hook_file,
 })
 
 -- 1. Verify Start Hook

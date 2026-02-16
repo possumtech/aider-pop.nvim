@@ -5,17 +5,16 @@ local ui = require('aider-pop.ui')
 M.config = {
 	binary = "aider",
 	args = { "--no-gitignore", "--yes-always", "--no-pretty" },
-	ui = { 
-		width = 0.8, height = 0.8, border = "rounded", terminal_name = "xterm-256color",
-		statusline = false 
-	},
+	width = 0.8,
+	height = 0.8,
+	border = "rounded",
+	terminal_name = "xterm-256color",
+	statusline = false,
 	sync_buffers = false,
 	pop_on_completion = false,
 	resume_session = true,
-	hooks = {
-		on_start = nil,
-		on_stop = nil,
-	}
+	on_start = nil,
+	on_stop = nil,
 }
 
 function M.setup(opts)
@@ -61,7 +60,7 @@ function M.setup(opts)
 		cnoreabbrev <expr> AI/ (getcmdtype() == ':' && getcmdline() ==# 'AI/') ? 'AI /' : 'AI/'
 	]])
 
-	if M.config.ui.statusline then
+	if M.config.statusline then
 		vim.o.statusline = vim.o.statusline .. "%= %{v:lua.require('aider-pop').status()}"
 	end
 
