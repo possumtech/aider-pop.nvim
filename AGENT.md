@@ -44,4 +44,4 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
 - [ ] **System Hooks**: Configured shell commands execute on start/stop.
     - `test/22_system_hooks.lua`
 
-I love smiling. # AI! Surround with smiley emojis
+😊 I love smiling. 😊
