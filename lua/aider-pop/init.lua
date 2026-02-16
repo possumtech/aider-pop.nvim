@@ -162,7 +162,10 @@ function M.start()
 		vim.notify("aider binary not found: " .. M.config.binary, vim.log.levels.ERROR)
 		return
 	end
-	M.buffer = M.buffer or vim.api.nvim_create_buf(false, true)
+	if M.buffer and vim.api.nvim_buf_is_valid(M.buffer) then
+		vim.api.nvim_buf_delete(M.buffer, { force = true })
+	end
+	M.buffer = vim.api.nvim_create_buf(false, true)
 	vim.api.nvim_buf_set_name(M.buffer, "aider-pop-terminal")
 	vim.api.nvim_buf_call(M.buffer, function()
 		M.job_id = vim.fn.termopen({ M.config.binary, unpack(M.config.args) }, {
@@ -182,6 +185,7 @@ function M.send_raw(p)
 end
 
 function M.send(text)
+	M.start()
 	if not M.is_running() then return end
 	local map = { ["?"] = "/ask ", ["!"] = "/run ", [":"] = "/architect ", ["/"] = "/" }
 	local char = text:sub(1, 1)
@@ -205,6 +209,7 @@ function M.toggle_modal()
 		M.window = nil
 		vim.cmd("redrawstatus")
 	elseif M.buffer and vim.api.nvim_buf_is_valid(M.buffer) then
+		if not M.is_running() then M.start() end
 		local w, h = math.floor(vim.o.columns * M.config.ui.width), math.floor(vim.o.lines * M.config.ui.height)
 		M.window = vim.api.nvim_open_win(M.buffer, true, {
 			relative = "editor", width = w, height = h, row = math.floor((vim.o.lines - h) / 2),
