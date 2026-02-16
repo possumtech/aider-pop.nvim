@@ -17,6 +17,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 ```lua
 {
   "possumtech/aider-pop.nvim",
+  lazy = false,
   keys = {
     { "<leader>a", "<cmd>AiderPopToggle<cr>", desc = "Toggle Aider" },
   },
