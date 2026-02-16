@@ -58,6 +58,34 @@ function M.capture_answer()
 	end
 end
 
+function M.capture_sync()
+	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
+	local lines = vim.api.nvim_buf_get_lines(M.buffer, M.last_command_line, -1, false)
+	for _, line in ipairs(lines) do
+		local l = M.strip_ansi(line):gsub("^%s*", ""):gsub("%s*$", "")
+		local add_file = l:match("^/add%s+(.+)")
+		local drop_file = l:match("^/drop%s+(.+)")
+		
+		if add_file then
+			vim.schedule(function()
+				vim.cmd("edit " .. add_file)
+			end)
+		elseif drop_file then
+			vim.schedule(function()
+				local bufs = vim.api.nvim_list_bufs()
+				for _, b in ipairs(bufs) do
+					if vim.api.nvim_buf_is_valid(b) then
+						local name = vim.api.nvim_buf_get_name(b)
+						if name:match(drop_file .. "$") then
+							vim.cmd("bwipeout " .. b)
+						end
+					end
+				end
+			end)
+		end
+	end
+end
+
 function M.check_state(on_state_change)
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
 	local lines = vim.api.nvim_buf_get_lines(M.buffer, 0, -1, false)
@@ -81,6 +109,7 @@ function M.check_state(on_state_change)
 		if is_genuine_prompt then
 			if M.is_busy then
 				M.capture_answer()
+				M.capture_sync()
 				M.is_busy = false
 			end
 			M.is_idle, M.is_blocked = true, false

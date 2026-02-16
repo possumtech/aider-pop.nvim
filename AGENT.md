@@ -23,19 +23,19 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
     - `test/19_modal_mode.lua`
 - [x] **Statusline Integration**: `require('aider-pop').status()` returns correct symbols based on process state.
     - `test/20_status_api.lua`
-- [ ] **Visual Selection**: Visual mode commands include the selected text as context.
+- [x] **Visual Selection**: Visual mode commands include the selected text as context.
     - `test/17_visual_context.lua`
 
 ## 🏗 Phase 3: Bidirectional Context Sync
-- [ ] **Neovim -> Aider (/add)**: Creating or opening a buffer in Neovim triggers a `/add` command to Aider.
+- [x] **Neovim -> Aider (/add)**: Creating or opening a buffer in Neovim triggers a `/add` command to Aider.
     - `test/12_auto_add_nvim.lua`
-- [ ] **Ignore Non-File Buffers**: Special buffers (e.g., help, quickfix, dashboard) do not trigger `/add`.
+- [x] **Ignore Non-File Buffers**: Special buffers (e.g., help, quickfix, dashboard) do not trigger `/add`.
     - `test/13_ignore_special_buffers.lua`
-- [ ] **Aider -> Neovim (/add)**: Aider requesting a file via `/add` (parsed from output) creates or opens the corresponding buffer in Neovim.
+- [x] **Aider -> Neovim (/add)**: Aider requesting a file via `/add` (parsed from output) creates or opens the corresponding buffer in Neovim.
     - `test/14_auto_add_aider.lua`
-- [ ] **Neovim -> Aider (/drop)**: Closing a buffer in Neovim triggers a `/drop` command to Aider.
+- [x] **Neovim -> Aider (/drop)**: Closing a buffer in Neovim triggers a `/drop` command to Aider.
     - `test/15_auto_drop_nvim.lua`
-- [ ] **Aider -> Neovim (/drop)**: Aider dropping a file via `/drop` (parsed from output) closes the corresponding buffer in Neovim.
+- [x] **Aider -> Neovim (/drop)**: Aider dropping a file via `/drop` (parsed from output) closes the corresponding buffer in Neovim.
     - `test/16_auto_drop_aider.lua`
 
 ## 🔗 Phase 4: Extensions & Hooks

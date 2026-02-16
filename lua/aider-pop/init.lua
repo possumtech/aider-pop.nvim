@@ -9,6 +9,9 @@ M.config = {
 		width = 0.8, height = 0.8, border = "rounded", terminal_name = "xterm-256color",
 		statusline = false 
 	},
+	sync = {
+		active_buffers = false,
+	}
 }
 
 function M.setup(opts)
@@ -53,6 +56,46 @@ function M.setup(opts)
 	if M.config.ui.statusline then
 		vim.o.statusline = vim.o.statusline .. " %{v:lua.require('aider-pop').status()}"
 	end
+
+	local group = vim.api.nvim_create_augroup("AiderPopSync", { clear = true })
+	vim.api.nvim_create_autocmd("BufWinEnter", {
+		group = group,
+		callback = function(ev)
+			if not M.config.sync.active_buffers then return end
+			local bufnr = ev.buf
+			if vim.api.nvim_buf_get_option(bufnr, "buftype") ~= "" then return end
+			local file = vim.api.nvim_buf_get_name(bufnr)
+			if file == "" or not vim.loop.fs_stat(file) then return end
+			
+			-- Convert to relative path if possible
+			file = vim.fn.fnamemodify(file, ":.")
+			
+			-- Don't add Aider's own buffer
+			if job.buffer and bufnr == job.buffer then return end
+			
+			M.send("/add " .. file)
+		end
+	})
+
+	vim.api.nvim_create_autocmd("BufDelete", {
+		group = group,
+		callback = function(ev)
+			if not M.config.sync.active_buffers then return end
+			local bufnr = ev.buf
+			
+			local bt = vim.api.nvim_buf_get_option(bufnr, "buftype")
+			if bt ~= "" then return end
+			
+			local file = vim.api.nvim_buf_get_name(bufnr)
+			if file == "" then file = ev.file end
+			if file == "" then return end
+			
+			file = vim.fn.fnamemodify(file, ":.")
+			if job.buffer and bufnr == job.buffer then return end
+			
+			M.send("/drop " .. file)
+		end
+	})
 end
 
 function M.start()
