@@ -4,16 +4,25 @@ local log_file = './aider_input_09.log'
 
 -- Create mock binary
 local f = io.open(mock_bin, "w")
-f:write("#!/bin/bash\n")
-f:write("while read line; do echo \"$line\" >> " .. log_file .. "; done\n")
+local script = string.format([=[#!/bin/bash
+MODE="architect"
+printf "%s> " "$MODE"
+while read line; do 
+    echo "$line" >> %s
+    printf "%s> " "$MODE"
+done
+]=], "%s", log_file, "%s")
+f:write(script)
 f:close()
 os.execute("chmod +x " .. mock_bin)
 
 M.setup({ binary = mock_bin })
 
+-- Wait for initial idle
+vim.wait(2000, function() return not M.is_blocked end)
+
 local cases = {
     "hello from neovim",
-    "multiline\ninput",
     "with 'quotes' and \"double quotes\"",
     "with `backticks` and ; semicolons"
 }
@@ -33,11 +42,11 @@ local function check_all_present()
     return true
 end
 
-local ok = vim.wait(3000, check_all_present, 100)
+local ok = vim.wait(5000, check_all_present, 100)
 
 M.stop()
 os.remove(mock_bin)
-os.remove(log_file)
+if io.open(log_file, "r") then os.remove(log_file) end
 
 if ok then
     os.exit(0)

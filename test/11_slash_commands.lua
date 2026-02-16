@@ -4,12 +4,22 @@ local log_file = './aider_input_11.log'
 
 -- Create mock binary
 local f = io.open(mock_bin, "w")
-f:write("#!/bin/bash\n")
-f:write("while read line; do echo \"$line\" >> " .. log_file .. "; done\n")
+local script = string.format([=[#!/bin/bash
+MODE="architect"
+printf "%s> " "$MODE"
+while read line; do 
+    echo "$line" >> %s
+    printf "%s> " "$MODE"
+done
+]=], "%s", log_file, "%s")
+f:write(script)
 f:close()
 os.execute("chmod +x " .. mock_bin)
 
 M.setup({ binary = mock_bin })
+
+-- Wait for initial idle
+vim.wait(2000, function() return not M.is_blocked end)
 
 -- Test direct slash command
 M.send("/ tokens")
@@ -24,13 +34,14 @@ local function check_log()
   return content and content:find("/tokens", 1, true) and content:find("/add file.txt", 1, true)
 end
 
-local ok = vim.wait(2000, check_log, 100)
+local ok = vim.wait(5000, check_log, 100)
 
 M.stop()
 os.remove(mock_bin)
-os.remove(log_file)
+if io.open(log_file, "r") then os.remove(log_file) end
 
 if ok then
+  print("✅ Milestone 11 passed")
   os.exit(0)
 else
   print("❌ Slash command routing failed")

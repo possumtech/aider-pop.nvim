@@ -23,6 +23,8 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
     - `test/19_modal_mode.lua`
 - [x] **Statusline Integration**: `require('aider-pop').status()` returns correct symbols based on process state.
     - `test/20_status_api.lua`
+- [ ] **Visual Selection**: Visual mode commands include the selected text as context.
+    - `test/17_visual_context.lua`
 
 ## 🏗 Phase 3: Bidirectional Context Sync
 - [ ] **Neovim -> Aider (/add)**: Creating or opening a buffer in Neovim triggers a `/add` command to Aider.
@@ -35,8 +37,6 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
     - `test/15_auto_drop_nvim.lua`
 - [ ] **Aider -> Neovim (/drop)**: Aider dropping a file via `/drop` (parsed from output) closes the corresponding buffer in Neovim.
     - `test/16_auto_drop_aider.lua`
-- [x] **Visual Selection**: Visual mode commands include the selected text as context.
-    - `test/17_visual_context.lua`
 
 ## 🔗 Phase 4: Extensions & Hooks
 - [ ] **User Autocommands**: `AiderStart` and `AiderStop` fire with unique IDs.

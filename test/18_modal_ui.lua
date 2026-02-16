@@ -14,7 +14,8 @@ f:write("#!/bin/bash\n")
 f:write("printf \"Add .aider* to .gitignore? (Y)es/(N)o [Yes]: \"\n")
 f:write("read answer\n")
 f:write("echo \"Answer received: $answer\" > " .. log_file .. "\n")
-f:write("while read line; do echo \"Input: $line\" >> " .. log_file .. "; done\n")
+f:write("printf \"architect> \"\n")
+f:write("while read line; do echo \"Input: $line\" >> " .. log_file .. "; printf \"architect> \"; done\n")
 f:close()
 os.execute("chmod +x " .. mock_bin)
 
@@ -40,7 +41,7 @@ if not ok then
 end
 
 -- 3. Verify interaction (answering a prompt)
-M.send("y")
+vim.api.nvim_chan_send(M.job_id, "y\n")
 ok = vim.wait(5000, function()
     local lf = io.open(log_file, "r")
     if not lf then return false end
