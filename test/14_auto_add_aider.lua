@@ -6,9 +6,9 @@ local f = io.open(mock_bin, "w")
 f:write([=[#!/bin/bash
 printf "architect> "
 while read line; do
-  if [[ "$line" == *"trigger"* ]]; then
-    echo "Adding file.lua to the chat..."
-    echo "/add file.lua"
+  if [[ "$line" == *"/ls"* ]]; then
+    echo "Files in chat:"
+    echo "  file.lua"
     echo ""
     printf "architect> "
   else
@@ -19,7 +19,10 @@ done
 f:close()
 os.execute("chmod +x " .. mock_bin)
 
-M.setup({ binary = mock_bin })
+M.setup({ 
+    binary = mock_bin,
+    sync = { active_buffers = true }
+})
 
 -- Create dummy file.lua
 local tf = io.open("file.lua", "w")
@@ -29,8 +32,8 @@ tf:close()
 -- Wait for initial idle
 vim.wait(5000, function() return M.is_idle end)
 
--- Trigger the /add from aider
-M.send("trigger")
+-- Trigger the /add from aider (simulating user action)
+M.send("/add file.lua")
 
 -- Verify that Neovim opened file.lua
 local ok = vim.wait(5000, function()

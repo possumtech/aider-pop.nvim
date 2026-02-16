@@ -7,6 +7,7 @@ M.is_idle = false
 M.is_busy = false
 M.last_read_line = 0
 M.last_command_line = 0
+M.last_sync_line = 0
 M.last_answer = ""
 M.command_queue = {}
 M.config = {}
@@ -63,35 +64,83 @@ function M.capture_sync()
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
 	if not M.config or not M.config.sync or not M.config.sync.active_buffers then return end
 	
-	local lines = vim.api.nvim_buf_get_lines(M.buffer, M.last_command_line, -1, false)
+	local lines = vim.api.nvim_buf_get_lines(M.buffer, M.last_sync_line, -1, false)
+	if #lines == 0 then return end
+
+	local in_file_list = false
+	local empty_list_detected = false
+	local current_files = {}
+
 	for _, line in ipairs(lines) do
 		local l = M.strip_ansi(line):gsub("^%s*", ""):gsub("%s*$", "")
-		local add_file = l:match("^/add%s+(.+)")
-		local drop_file = l:match("^/drop%s+(.+)")
+		-- Clean prompt if present
+		l = l:gsub("^[^>]*>%s*", "")
 		
-		if add_file then
-			vim.schedule(function()
-				vim.cmd("edit " .. add_file)
-			end)
-		elseif drop_file then
-			vim.schedule(function()
-				local full_path = vim.fn.fnamemodify(drop_file, ":p")
-				local bufs = vim.api.nvim_list_bufs()
-				for _, b in ipairs(bufs) do
+		-- /ls output headers
+		if l:match("^Read%-only files:") or l:match("^Files in chat:") then
+			in_file_list = true
+		elseif l:match("^No files in chat") then
+			empty_list_detected = true
+		elseif l == "" and in_file_list then
+			-- End of a block
+		elseif in_file_list then
+			-- Lines in /ls look like "  filename.ext"
+			local file = l:gsub("^%s*", "")
+			if file ~= "" and not file:match("^Repo files not in the chat") then
+				-- Clean aider path junk
+				local clean_f = file:gsub("^%.%.%/[%.%.%/]*", ""):gsub("^%/", "")
+				local real = vim.loop.fs_realpath(clean_f)
+				if real then
+					current_files[real] = true
+				end
+			end
+		end
+	end
+
+	-- RECONCILE: If /ls was detected (even if empty), synchronize Neovim buffers
+	if in_file_list or empty_list_detected then
+		vim.schedule(function()
+			-- 1. Ensure all files in Aider are open in Neovim
+			for real_path, _ in pairs(current_files) do
+				local is_open = false
+				for _, b in ipairs(vim.api.nvim_list_bufs()) do
 					if vim.api.nvim_buf_is_valid(b) then
-						local name = vim.api.nvim_buf_get_name(b)
-						if name ~= "" and vim.fn.fnamemodify(name, ":p") == full_path then
+						local b_name = vim.api.nvim_buf_get_name(b)
+						if b_name ~= "" and vim.loop.fs_realpath(b_name) == real_path then
+							is_open = true break
+						end
+					end
+				end
+				if not is_open then 
+					vim.cmd("edit " .. vim.fn.fnameescape(real_path))
+				end
+			end
+
+			-- 2. Drop any listed buffers that are NOT in Aider's list
+			-- (But only if they are normal files and not aider-pop buffers)
+			for _, b in ipairs(vim.api.nvim_list_bufs()) do
+				if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_option(b, "buflisted") then
+					local bt = vim.api.nvim_buf_get_option(b, "buftype")
+					local name = vim.api.nvim_buf_get_name(b)
+					if bt == "" and name ~= "" and not name:match("^aider%-pop://") then
+						local b_real = vim.loop.fs_realpath(name)
+						if b_real and not current_files[b_real] then
 							vim.api.nvim_buf_delete(b, { force = true })
 						end
 					end
 				end
-			end)
-		end
+			end
+		end)
 	end
+	
+	M.last_sync_line = M.get_last_content_line()
 end
 
 function M.check_state(on_state_change)
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
+	
+	M.capture_sync()
+
 	local lines = vim.api.nvim_buf_get_lines(M.buffer, 0, -1, false)
 	local last = ""
 	local last_idx = 0
@@ -113,7 +162,6 @@ function M.check_state(on_state_change)
 		if is_genuine_prompt then
 			if M.is_busy then
 				M.capture_answer()
-				M.capture_sync()
 				M.is_busy = false
 			end
 			M.is_idle, M.is_blocked = true, false

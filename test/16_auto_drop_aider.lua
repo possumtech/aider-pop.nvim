@@ -6,9 +6,8 @@ local f = io.open(mock_bin, "w")
 f:write([=[#!/bin/bash
 printf "architect> "
 while read line; do
-  if [[ "$line" == *"trigger"* ]]; then
-    echo "Dropping file.lua from the chat..."
-    echo "/drop file.lua"
+  if [[ "$line" == *"/ls"* ]]; then
+    echo "No files in chat."
     echo ""
     printf "architect> "
   else
@@ -19,7 +18,10 @@ done
 f:close()
 os.execute("chmod +x " .. mock_bin)
 
-M.setup({ binary = mock_bin })
+M.setup({ 
+    binary = mock_bin,
+    sync = { active_buffers = true }
+})
 
 -- Create and open file.lua
 local tf = io.open("file.lua", "w")
@@ -31,7 +33,7 @@ vim.cmd("edit file.lua")
 vim.wait(5000, function() return M.is_idle end)
 
 -- Trigger the /drop from aider
-M.send("trigger")
+M.send("/drop file.lua")
 
 -- Verify that Neovim closed file.lua
 local ok = vim.wait(5000, function()

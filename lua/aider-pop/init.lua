@@ -126,6 +126,10 @@ function M.send(text)
 	
 	if job.is_idle and not job.is_blocked then 
 		job.send_raw(payload) 
+		-- If it was a sync command, follow up with /ls
+		if payload:match("^/add") or payload:match("^/drop") then
+			job.send_raw("/ls")
+		end
 	else 
 		table.insert(job.command_queue, payload) 
 	end
