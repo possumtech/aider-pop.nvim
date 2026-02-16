@@ -24,8 +24,12 @@ function M.toggle_modal(job, config)
 		vim.api.nvim_buf_set_keymap(job.buffer, "t", "<Esc>", [[<C-\><C-n>]], { noremap = true, silent = true })
 		vim.api.nvim_buf_set_keymap(job.buffer, "n", "<Esc>", [[<cmd>AiderPopToggle<cr>]], { noremap = true, silent = true })
 		
-		vim.cmd("stopinsert")
 		vim.api.nvim_win_set_cursor(M.window, { math.max(1, job.get_last_content_line()), 0 })
+		if job.is_blocked then
+			vim.cmd("startinsert")
+		else
+			vim.cmd("stopinsert")
+		end
 	end
 end
 

@@ -38,6 +38,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 - `:AI! <command>`: Run a shell command (mapped to `/run`).
 - `:AI/ <cmd>`: Direct Aider slash command (e.g., `:AI/add file.lua`).
 - `:AiderPopToggle`: Toggle the floating window.
+- `:AiderPopOnCompletionToggle`: Toggle whether to automatically pop up when Aider finishes a task.
 
 ### Visual Mode
 
@@ -56,7 +57,8 @@ require('aider-pop').setup({
     height = 0.8,
     border = "rounded",
     statusline = false,
-  }
+  },
+  pop_on_completion = false, -- Automatically pop up when Aider finishes a task
 })
 ```
 

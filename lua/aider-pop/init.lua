@@ -11,7 +11,8 @@ M.config = {
 	},
 	sync = {
 		active_buffers = false,
-	}
+	},
+	pop_on_completion = false,
 }
 
 function M.setup(opts)
@@ -45,6 +46,10 @@ function M.setup(opts)
 	end, { nargs = "*", range = true })
 
 	vim.api.nvim_create_user_command("AiderPopToggle", function() M.toggle_modal() end, {})
+	vim.api.nvim_create_user_command("AiderPopOnCompletionToggle", function()
+		M.config.pop_on_completion = not M.config.pop_on_completion
+		vim.notify("Aider pop_on_completion: " .. tostring(M.config.pop_on_completion), vim.log.levels.INFO)
+	end, {})
 
 	vim.cmd([[
 		cnoreabbrev <expr> AI: (getcmdtype() == ':' && getcmdline() ==# 'AI:') ? 'AI :' : 'AI:'
@@ -118,9 +123,12 @@ end
 function M.start()
 	if not M.is_git_root() then return end
 	job.start(M.config, function()
-		if job.is_blocked and not (ui.window and vim.api.nvim_win_is_valid(ui.window)) then
+		local is_open = (ui.window and vim.api.nvim_win_is_valid(ui.window))
+		
+		if job.is_blocked and not is_open then
 			M.toggle_modal()
-			vim.cmd("startinsert")
+		elseif M.config.pop_on_completion and job.is_idle and not is_open then
+			M.toggle_modal()
 		end
 		vim.cmd("redrawstatus")
 	end)
