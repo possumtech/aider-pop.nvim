@@ -38,21 +38,15 @@ M.has_resumed = false
 
 function M.resolve_path(p)
 	if not p or p == "" then return nil end
-	-- Strip leading @ if present
 	local clean = p:gsub("^@", "")
-	-- Try direct resolution first (handles relative paths from Aider)
 	local r = vim.loop.fs_realpath(clean)
-	if r then return r end
-	-- If that fails, Aider might be giving paths relative to repo root but we are in a subdir
-	-- However, usually Aider runs in repo root. 
-	return nil
+	return r
 end
 
 function M.capture_sync(force)
 	if M.is_syncing then return end
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
 	
-	-- Only sync if we are idle (saw a prompt recently) OR forced
 	if not M.is_idle and not force then return end
 
 	local lines = vim.api.nvim_buf_get_lines(M.buffer, 0, -1, false)
@@ -123,8 +117,6 @@ function M.capture_sync(force)
 					if r then
 						if in_file_list then 
 							current_chat_files[r] = true 
-							-- We don't know if list-style is editable or readonly easily here
-							-- but usually it's editable in recent Aider versions
 							table.insert(editable_candidates, r)
 						else 
 							current_repo_files[r] = true 
@@ -137,17 +129,15 @@ function M.capture_sync(force)
 		end
 	end
 
-	-- Session Resumption Logic
 	if M.config.resume_session and not M.has_resumed then
 		local candidate = editable_candidates[1] or readonly_candidates[1]
 		if candidate then
 			vim.schedule(function()
 				local cur_buf = vim.api.nvim_get_current_buf()
-				local name = vim.api.nvim_buf_get_name(cur_buf)
-				local modified = vim.api.nvim_buf_get_option(cur_buf, "modified")
-				local argc = vim.fn.argc()
-				
-				if name == "" and not modified and argc == 0 then
+				local is_blank = vim.api.nvim_buf_get_name(cur_buf) == "" 
+					and vim.api.nvim_buf_get_option(cur_buf, "modified") == false
+					and vim.fn.argc() == 0
+				if is_blank then
 					vim.cmd("edit " .. vim.fn.fnameescape(candidate))
 				end
 			end)
@@ -155,9 +145,6 @@ function M.capture_sync(force)
 		end
 	end
 
-	-- Update global state
-	M.chat_files = current_chat_files
-	-- repo_files should be a superset of everything we've seen in the project
 	for k, v in pairs(current_repo_files) do M.repo_files[k] = v end
 	for k, v in pairs(current_chat_files) do M.repo_files[k] = v end
 
@@ -169,11 +156,8 @@ function M.capture_sync(force)
 					for _, b in ipairs(vim.api.nvim_list_bufs()) do
 						if vim.api.nvim_buf_is_valid(b) then
 							local b_name = vim.api.nvim_buf_get_name(b)
-							if b_name ~= "" then
-								local b_real = vim.loop.fs_realpath(b_name)
-								if b_real == real_path then
-									is_open = true break
-								end
+							if b_name ~= "" and vim.loop.fs_realpath(b_name) == real_path then
+								is_open = true break
 							end
 						end
 					end
@@ -190,32 +174,57 @@ function M.capture_sync(force)
 						local name = vim.api.nvim_buf_get_name(b)
 						if bt == "" and name ~= "" and not name:match("^aider%-pop://") then
 							local b_real = vim.loop.fs_realpath(name)
-							if b_real and not current_chat_files[b_real] then
+							if b_real and M.chat_files[b_real] and not current_chat_files[b_real] then
 								vim.api.nvim_buf_delete(b, { force = true })
 							end
 						end
 					end
 				end
+
+				for _, b in ipairs(vim.api.nvim_list_bufs()) do
+					if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_option(b, "buflisted") then
+						local bt = vim.api.nvim_buf_get_option(b, "buftype")
+						local name = vim.api.nvim_buf_get_name(b)
+						if bt == "" and name ~= "" and not name:match("^aider%-pop://") then
+							local b_real = vim.loop.fs_realpath(name)
+							if b_real and M.repo_files[b_real] and not current_chat_files[b_real] then
+								local rel = vim.fn.fnamemodify(b_real, ":.")
+								require('aider-pop').send("/add " .. rel)
+							end
+						end
+					end
+				end
+
+				for chat_path, _ in pairs(current_chat_files) do
+					local is_open = false
+					for _, b in ipairs(vim.api.nvim_list_bufs()) do
+						if vim.api.nvim_buf_is_valid(b) then
+							local b_name = vim.api.nvim_buf_get_name(b)
+							if b_name ~= "" and vim.loop.fs_realpath(b_name) == chat_path then
+								is_open = true break
+							end
+						end
+					end
+					if not is_open then
+						local rel = vim.fn.fnamemodify(chat_path, ":.")
+						require('aider-pop').send("/drop " .. rel)
+					end
+				end
+
+				M.chat_files = current_chat_files
 				M.is_syncing = false
 			end)
 		else
 			M.is_syncing = false
 		end
 	else
+		M.chat_files = current_chat_files
 		M.is_syncing = false
 	end
 end
 
-
-
-
-
-
-
-
 function M.check_state(on_state_change)
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
-	
 	local lines = vim.api.nvim_buf_get_lines(M.buffer, 0, -1, false)
 	local last = ""
 	local last_idx = 0
@@ -227,17 +236,11 @@ function M.check_state(on_state_change)
 			break 
 		end
 	end
-
-	local was_busy = M.is_busy
-	local was_idle = M.is_idle
-	local was_blocked = M.is_blocked
-
+	local was_busy, was_idle, was_blocked = M.is_busy, M.is_idle, M.is_blocked
 	if last:match(">%s*$") then
 		local is_genuine_prompt = not M.is_busy or last_idx > M.last_command_line
 		if is_genuine_prompt then
-			if M.is_busy then
-				M.is_busy = false
-			end
+			if M.is_busy then M.is_busy = false end
 			M.capture_sync()
 			M.is_idle, M.is_blocked = true, false
 			if #M.command_queue > 0 then M.send_raw(table.remove(M.command_queue, 1)) end
@@ -247,7 +250,6 @@ function M.check_state(on_state_change)
 	else
 		M.is_idle = false
 	end
-
 	if (was_busy ~= M.is_busy or was_idle ~= M.is_idle or was_blocked ~= M.is_blocked) and on_state_change then
 		on_state_change()
 	end
@@ -256,8 +258,7 @@ end
 function M.start(config, on_state_change)
 	if M.job_id then return end
 	M.config = config
-	M.last_sync_line = 0
-	M.repo_files = {}
+	M.last_sync_line, M.repo_files = 0, {}
 	if vim.fn.executable(config.binary) ~= 1 then
 		vim.notify("aider binary not found: " .. config.binary, vim.log.levels.ERROR)
 		return
@@ -270,16 +271,12 @@ function M.start(config, on_state_change)
 	vim.api.nvim_buf_call(M.buffer, function()
 		M.job_id = vim.fn.termopen({ config.binary, unpack(config.args) }, {
 			env = { TERM = config.terminal_name },
-			on_stdout = function()
-				if M.is_idle then M.capture_sync() end
-			end,
+			on_stdout = function() if M.is_idle then M.capture_sync() end end,
 			on_exit = function() M.job_id, M.is_idle = nil, false end,
 		})
 	end)
 	M.capture_sync(true)
-	if M.config.on_start then
-		os.execute(M.config.on_start)
-	end
+	if M.config.on_start then os.execute(M.config.on_start) end
 	vim.api.nvim_exec_autocmds("User", { pattern = "AiderStart", modeline = false })
 	M.timer = vim.fn.timer_start(200, function() pcall(M.check_state, on_state_change) end, { ["repeat"] = -1 })
 end
@@ -295,9 +292,7 @@ function M.stop()
 	if M.job_id then vim.fn.jobstop(M.job_id) end
 	if M.timer then vim.fn.timer_stop(M.timer) end
 	M.is_idle = false
-	if M.config.on_stop then
-		os.execute(M.config.on_stop)
-	end
+	if M.config.on_stop then os.execute(M.config.on_stop) end
 	vim.api.nvim_exec_autocmds("User", { pattern = "AiderStop", modeline = false })
 end
 
