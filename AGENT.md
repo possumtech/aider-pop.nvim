@@ -37,6 +37,8 @@ This document tracks the progress of `aider-pop.nvim`. Each milestone is conside
     - `test/15_auto_drop_nvim.lua`
 - [x] **Aider -> Neovim (/drop)**: Aider dropping a file via `/drop` (parsed from output) closes the corresponding buffer in Neovim.
     - `test/16_auto_drop_aider.lua`
+- [x] **Session Resumption**: Automatically open a file from the chat if Neovim starts on a blank buffer.
+    - `test/23_resume_session.lua`
 
 ## 🔗 Phase 4: Extensions & Hooks
 - [x] **User Autocommands**: `AiderStart` and `AiderStop` fire with unique IDs.

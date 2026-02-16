@@ -34,6 +34,7 @@ end
 
 M.is_syncing = false
 M.last_sync_content = ""
+M.has_resumed = false
 
 function M.resolve_path(p)
 	if not p or p == "" then return nil end
@@ -47,13 +48,12 @@ function M.resolve_path(p)
 	return nil
 end
 
-function M.capture_sync()
+function M.capture_sync(force)
 	if M.is_syncing then return end
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
-	if not M.config or not M.config.sync or not M.config.sync.active_buffers then return end
 	
-	-- Only sync if we are idle (saw a prompt recently)
-	if not M.is_idle then return end
+	-- Only sync if we are idle (saw a prompt recently) OR forced
+	if not M.is_idle and not force then return end
 
 	local lines = vim.api.nvim_buf_get_lines(M.buffer, 0, -1, false)
 	if #lines == 0 then return end
@@ -69,6 +69,8 @@ function M.capture_sync()
 	local empty_list_detected = false
 	local current_chat_files = {}
 	local current_repo_files = {}
+	local editable_candidates = {}
+	local readonly_candidates = {}
 	local found_sync_data = false
 
 	for _, line in ipairs(lines) do
@@ -98,14 +100,20 @@ function M.capture_sync()
 					current_chat_files = {} 
 					for f in readonly_match:gmatch("%S+") do 
 						local r = M.resolve_path(f)
-						if r then current_chat_files[r] = true end
+						if r then 
+							current_chat_files[r] = true 
+							table.insert(readonly_candidates, r)
+						end
 					end 
 				end
 				if editable_match then 
 					if not readonly_match then current_chat_files = {} end
 					for f in editable_match:gmatch("%S+") do 
 						local r = M.resolve_path(f)
-						if r then current_chat_files[r] = true end
+						if r then 
+							current_chat_files[r] = true 
+							table.insert(editable_candidates, r)
+						end
 					end 
 				end
 			elseif in_file_list or in_repo_list then
@@ -115,6 +123,9 @@ function M.capture_sync()
 					if r then
 						if in_file_list then 
 							current_chat_files[r] = true 
+							-- We don't know if list-style is editable or readonly easily here
+							-- but usually it's editable in recent Aider versions
+							table.insert(editable_candidates, r)
 						else 
 							current_repo_files[r] = true 
 						end
@@ -126,48 +137,70 @@ function M.capture_sync()
 		end
 	end
 
+	-- Session Resumption Logic
+	if M.config.resume_session and not M.has_resumed then
+		local candidate = editable_candidates[1] or readonly_candidates[1]
+		if candidate then
+			vim.schedule(function()
+				local cur_buf = vim.api.nvim_get_current_buf()
+				local name = vim.api.nvim_buf_get_name(cur_buf)
+				local modified = vim.api.nvim_buf_get_option(cur_buf, "modified")
+				local argc = vim.fn.argc()
+				
+				if name == "" and not modified and argc == 0 then
+					vim.cmd("edit " .. vim.fn.fnameescape(candidate))
+				end
+			end)
+			M.has_resumed = true
+		end
+	end
+
 	-- Update global state
 	M.chat_files = current_chat_files
 	-- repo_files should be a superset of everything we've seen in the project
 	for k, v in pairs(current_repo_files) do M.repo_files[k] = v end
 	for k, v in pairs(current_chat_files) do M.repo_files[k] = v end
 
-	if found_sync_data or empty_list_detected or next(current_chat_files) ~= nil then
-		vim.schedule(function()
-			for real_path, _ in pairs(current_chat_files) do
-				local is_open = false
+	if M.config.sync and M.config.sync.active_buffers then
+		if found_sync_data or empty_list_detected or next(current_chat_files) ~= nil then
+			vim.schedule(function()
+				for real_path, _ in pairs(current_chat_files) do
+					local is_open = false
+					for _, b in ipairs(vim.api.nvim_list_bufs()) do
+						if vim.api.nvim_buf_is_valid(b) then
+							local b_name = vim.api.nvim_buf_get_name(b)
+							if b_name ~= "" then
+								local b_real = vim.loop.fs_realpath(b_name)
+								if b_real == real_path then
+									is_open = true break
+								end
+							end
+						end
+					end
+					if not is_open then 
+						local bufnr = vim.fn.bufadd(real_path)
+						vim.fn.bufload(bufnr)
+						vim.fn.setbufvar(bufnr, "&buflisted", 1)
+					end
+				end
+
 				for _, b in ipairs(vim.api.nvim_list_bufs()) do
-					if vim.api.nvim_buf_is_valid(b) then
-						local b_name = vim.api.nvim_buf_get_name(b)
-						if b_name ~= "" then
-							local b_real = vim.loop.fs_realpath(b_name)
-							if b_real == real_path then
-								is_open = true break
+					if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_option(b, "buflisted") then
+						local bt = vim.api.nvim_buf_get_option(b, "buftype")
+						local name = vim.api.nvim_buf_get_name(b)
+						if bt == "" and name ~= "" and not name:match("^aider%-pop://") then
+							local b_real = vim.loop.fs_realpath(name)
+							if b_real and not current_chat_files[b_real] then
+								vim.api.nvim_buf_delete(b, { force = true })
 							end
 						end
 					end
 				end
-				if not is_open then 
-					local bufnr = vim.fn.bufadd(real_path)
-					vim.fn.bufload(bufnr)
-					vim.fn.setbufvar(bufnr, "&buflisted", 1)
-				end
-			end
-
-			for _, b in ipairs(vim.api.nvim_list_bufs()) do
-				if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_option(b, "buflisted") then
-					local bt = vim.api.nvim_buf_get_option(b, "buftype")
-					local name = vim.api.nvim_buf_get_name(b)
-					if bt == "" and name ~= "" and not name:match("^aider%-pop://") then
-						local b_real = vim.loop.fs_realpath(name)
-						if b_real and not current_chat_files[b_real] then
-							vim.api.nvim_buf_delete(b, { force = true })
-						end
-					end
-				end
-			end
+				M.is_syncing = false
+			end)
+		else
 			M.is_syncing = false
-		end)
+		end
 	else
 		M.is_syncing = false
 	end
@@ -243,7 +276,7 @@ function M.start(config, on_state_change)
 			on_exit = function() M.job_id, M.is_idle = nil, false end,
 		})
 	end)
-	M.capture_sync()
+	M.capture_sync(true)
 	if M.config.hooks and M.config.hooks.on_start then
 		os.execute(M.config.hooks.on_start)
 	end

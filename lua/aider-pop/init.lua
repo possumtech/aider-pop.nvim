@@ -13,6 +13,7 @@ M.config = {
 		active_buffers = false,
 	},
 	pop_on_completion = false,
+	resume_session = true,
 	hooks = {
 		on_start = nil,
 		on_stop = nil,

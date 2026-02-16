@@ -59,6 +59,7 @@ require('aider-pop').setup({
     statusline = false,
   },
   pop_on_completion = false, -- Automatically pop up when Aider finishes a task
+  resume_session = true,     -- Automatically open a file from the chat on startup
   hooks = {
     on_start = nil, -- Shell command to run when Aider starts
     on_stop = nil,  -- Shell command to run when Aider stops
