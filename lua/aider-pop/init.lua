@@ -3,14 +3,18 @@ local M = {}
 M.config = {
 	binary = "aider",
 	args = { "--no-gitignore", "--yes-always", "--no-pretty" },
-	ui = { width = 0.8, height = 0.8, border = "rounded", terminal_name = "xterm-256color" },
+	ui = { 
+		width = 0.8, height = 0.8, border = "rounded", terminal_name = "xterm-256color",
+		statusline = false 
+	},
 }
 
 M.job_id, M.buffer, M.window, M.is_blocked, M.is_idle, M.last_read_line = nil, nil, nil, false, false, 0
 M.command_queue = {}
 M.last_answer = ""
 M.expect_popup = false
-M.last_prompt_line = 0
+M.last_command_line = 0
+M.is_busy = false
 
 function M.strip_ansi(text)
 	if not text then return "" end
@@ -23,14 +27,45 @@ end
 
 function M.capture_answer()
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
-	local lines = vim.api.nvim_buf_get_lines(M.buffer, M.last_prompt_line, -1, false)
-	local text = table.concat(lines, " ")
-	text = M.strip_ansi(text)
-	-- Remove the prompt itself and any trailing garbage/tokens info
-	text = text:gsub("[%w%-]*>%s*$", ""):gsub("Tokens:.*$", ""):gsub("^%s*", "")
-	if text ~= "" then
-		M.last_answer = text
+	local lines = vim.api.nvim_buf_get_lines(M.buffer, M.last_command_line, -1, false)
+
+	-- 1. Identify the last line of output (ignoring trailing whitespace)
+	local last_idx = 0
+	for i = #lines, 1, -1 do
+		if M.strip_ansi(lines[i]):gsub("%s+$", "") ~= "" then
+			last_idx = i
+			break
+		end
 	end
+
+	if last_idx <= 1 then return end
+
+	-- 2. Walk backwards until there's a (truly) empty line
+	local empty_idx = 0
+	for i = last_idx - 1, 1, -1 do
+		if M.strip_ansi(lines[i]):gsub("%s+$", "") == "" then
+			empty_idx = i
+			break
+		end
+	end
+
+	-- 3. Walk backwards one more line
+	if empty_idx > 1 then
+		-- 4. That is the answer
+		local line = M.strip_ansi(lines[empty_idx - 1]):gsub("^%s*", ""):gsub("%s*$", "")
+		if line ~= "" then
+			M.last_answer = line
+		end
+	end
+end
+
+function M.get_last_content_line()
+	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return 0 end
+	local lines = vim.api.nvim_buf_get_lines(M.buffer, 0, -1, false)
+	for i = #lines, 1, -1 do
+		if M.strip_ansi(lines[i]):gsub("%s+$", "") ~= "" then return i end
+	end
+	return 0
 end
 
 function M.check_state()
@@ -40,29 +75,40 @@ function M.check_state()
 	local last_idx = 0
 	for i = #lines, 1, -1 do
 		local clean = M.strip_ansi(lines[i]):gsub("%s+$", "")
-		if clean ~= "" then
-			last, last_idx = clean, i
-			break
+		if clean ~= "" then 
+			last = clean 
+			last_idx = i
+			break 
 		end
 	end
 
+	local was_busy = M.is_busy
+	local was_idle = M.is_idle
+
 	if last:match(">%s*$") then
-		if not M.is_idle then
-			M.capture_answer()
-			M.last_prompt_line = last_idx
-			if M.expect_popup then
-				M.expect_popup = false
-				if not (M.window and vim.api.nvim_win_is_valid(M.window)) then M.toggle_modal() end
+		local is_genuine_prompt = not M.is_busy or last_idx > M.last_command_line
+		if is_genuine_prompt then
+			if M.is_busy then
+				M.capture_answer()
+				M.is_busy = false
+				if M.expect_popup then
+					M.expect_popup = false
+					if not (M.window and vim.api.nvim_win_is_valid(M.window)) then M.toggle_modal() end
+				end
 			end
+			M.is_idle, M.is_blocked = true, false
+			if #M.command_queue > 0 then M.send_raw(table.remove(M.command_queue, 1)) end
 		end
-		M.is_idle, M.is_blocked = true, false
-		if #M.command_queue > 0 then M.send_raw(table.remove(M.command_queue, 1)) end
 	elseif last:match("%[.*%]:%s*$") or last:match("%(.-%):%s*$") or last:match("%(Y%)es/%(N%)o") then
-		M.is_blocked, M.is_idle = true, false
+		M.is_blocked, M.is_idle, M.is_busy = true, false, false
 		if not (M.window and vim.api.nvim_win_is_valid(M.window)) then M.toggle_modal() end
 		vim.cmd("startinsert")
 	else
 		M.is_idle = false
+	end
+
+	if was_busy ~= M.is_busy or was_idle ~= M.is_idle then
+		vim.cmd("redrawstatus")
 	end
 end
 
@@ -82,17 +128,25 @@ function M.setup(opts)
 		M.send(text)
 	end, { nargs = "*", range = true })
 	vim.api.nvim_create_user_command("AiderPopToggle", function() M.toggle_modal() end, {})
+	vim.api.nvim_create_user_command("AiderPopStatus", function() print("Aider Status: '" .. M.status() .. "'") end, {})
 	vim.cmd([[
 		cnoreabbrev <expr> AI: (getcmdtype() == ':' && getcmdline() ==# 'AI:') ? 'AI :' : 'AI:'
 		cnoreabbrev <expr> AI? (getcmdtype() == ':' && getcmdline() ==# 'AI?') ? 'AI ?' : 'AI?'
 		cnoreabbrev <expr> AI! (getcmdtype() == ':' && getcmdline() ==# 'AI!') ? 'AI !' : 'AI!'
 		cnoreabbrev <expr> AI/ (getcmdtype() == ':' && getcmdline() ==# 'AI/') ? 'AI /' : 'AI/'
 	]])
+
+	if M.config.ui.statusline then
+		vim.o.statusline = vim.o.statusline .. " %{v:lua.require('aider-pop').status()}"
+	end
 end
 
 function M.start()
 	if M.job_id then return end
-	if vim.fn.executable(M.config.binary) ~= 1 then return end
+	if vim.fn.executable(M.config.binary) ~= 1 then
+		vim.notify("aider binary not found: " .. M.config.binary, vim.log.levels.ERROR)
+		return
+	end
 	M.buffer = M.buffer or vim.api.nvim_create_buf(false, true)
 	vim.api.nvim_buf_set_name(M.buffer, "aider-pop-terminal")
 	vim.api.nvim_buf_call(M.buffer, function()
@@ -105,8 +159,11 @@ function M.start()
 end
 
 function M.send_raw(p)
-	M.is_idle = false
+	M.is_idle, M.is_busy = false, true
+	M.last_answer = ""
+	M.last_command_line = M.get_last_content_line()
 	vim.fn.chansend(M.job_id, p .. "\n")
+	vim.cmd("redrawstatus")
 end
 
 function M.send(text)
@@ -128,9 +185,10 @@ function M.is_running() return M.job_id ~= nil and M.job_id > 0 end
 
 function M.toggle_modal()
 	if M.window and vim.api.nvim_win_is_valid(M.window) then
-		M.last_read_line = vim.api.nvim_buf_line_count(M.buffer)
+		M.last_read_line = M.get_last_content_line()
 		vim.api.nvim_win_close(M.window, true)
 		M.window = nil
+		vim.cmd("redrawstatus")
 	elseif M.buffer and vim.api.nvim_buf_is_valid(M.buffer) then
 		local w, h = math.floor(vim.o.columns * M.config.ui.width), math.floor(vim.o.lines * M.config.ui.height)
 		M.window = vim.api.nvim_open_win(M.buffer, true, {
@@ -144,19 +202,22 @@ function M.toggle_modal()
 		vim.api.nvim_buf_set_keymap(M.buffer, "t", "<Esc>", [[<C-\><C-n>]], { noremap = true, silent = true })
 		vim.api.nvim_buf_set_keymap(M.buffer, "n", "<Esc>", [[<cmd>AiderPopToggle<cr>]], { noremap = true, silent = true })
 		vim.cmd("stopinsert")
-		vim.api.nvim_win_set_cursor(M.window, { vim.api.nvim_buf_line_count(M.buffer), 0 })
+		vim.api.nvim_win_set_cursor(M.window, { math.max(1, M.get_last_content_line()), 0 })
 	end
 end
 
 function M.status()
 	if not M.job_id then return "💤" end
 	if M.is_blocked then return "✋" end
-	if not M.is_idle then return "⏳ Running..." end
+	if M.is_busy or not M.is_idle then return "⏳" end
+	
 	if M.last_answer ~= "" then
-		local clean = M.last_answer:gsub("%s+", " "):sub(1, 50)
+		local clean = M.last_answer:gsub("%s+", " "):gsub("^%s*", ""):sub(1, 50)
 		return "🤖 " .. clean .. (#M.last_answer > 50 and "..." or "")
 	end
-	return ""
+
+	local content_line = M.get_last_content_line()
+	return content_line > M.last_read_line and "🤖" or ""
 end
 
 function M.stop() if M.job_id then vim.fn.jobstop(M.job_id) end end
