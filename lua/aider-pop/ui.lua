@@ -30,7 +30,7 @@ function M.toggle_modal(job, config)
 end
 
 function M.status(job)
-	if not (job.job_id and job.job_id > 0) then return "💀 0" end
+	if not (job.job_id and job.job_id > 0) then return "" end
 	
 	local count = vim.tbl_count(job.chat_files or {})
 	local icon = "🤖"

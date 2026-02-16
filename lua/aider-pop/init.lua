@@ -57,10 +57,12 @@ function M.setup(opts)
 		vim.o.statusline = vim.o.statusline .. "%= %{v:lua.require('aider-pop').status()}"
 	end
 
-	-- Trigger initial sync to populate whitelist
-	vim.defer_fn(function()
-		M.send("/ls")
-	end, 1000)
+	-- Trigger initial sync only if we are in a git root
+	if M.is_git_root() then
+		vim.defer_fn(function()
+			M.send("/ls")
+		end, 1000)
+	end
 
 	local group = vim.api.nvim_create_augroup("AiderPopSync", { clear = true })
 	vim.api.nvim_create_autocmd("BufWinEnter", {
@@ -109,7 +111,12 @@ function M.setup(opts)
 	})
 end
 
+function M.is_git_root()
+	return vim.fn.isdirectory(".git") == 1
+end
+
 function M.start()
+	if not M.is_git_root() then return end
 	job.start(M.config, function()
 		if job.is_blocked and not (ui.window and vim.api.nvim_win_is_valid(ui.window)) then
 			M.toggle_modal()
