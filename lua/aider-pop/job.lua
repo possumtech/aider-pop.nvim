@@ -64,31 +64,29 @@ function M.capture_sync()
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
 	if not M.config or not M.config.sync or not M.config.sync.active_buffers then return end
 	
-	local lines = vim.api.nvim_buf_get_lines(M.buffer, M.last_sync_line, -1, false)
-	if #lines == 0 then return end
-
-	local in_file_list = false
-	local empty_list_detected = false
+	-- We look at the last 10 lines of the buffer to find the state summary
+	local line_count = vim.api.nvim_buf_line_count(M.buffer)
+	local start_line = math.max(0, line_count - 10)
+	local lines = vim.api.nvim_buf_get_lines(M.buffer, start_line, -1, false)
+	
 	local current_files = {}
+	local found_state = false
 
 	for _, line in ipairs(lines) do
 		local l = M.strip_ansi(line):gsub("^%s*", ""):gsub("%s*$", "")
-		-- Clean prompt if present
-		l = l:gsub("^[^>]*>%s*", "")
 		
-		-- /ls output headers
-		if l:match("^Read%-only files:") or l:match("^Files in chat:") then
-			in_file_list = true
-		elseif l:match("^No files in chat") then
-			empty_list_detected = true
-		elseif l == "" and in_file_list then
-			-- End of a block
-		elseif in_file_list then
-			-- Lines in /ls look like "  filename.ext"
-			local file = l:gsub("^%s*", "")
-			if file ~= "" and not file:match("^Repo files not in the chat") then
+		-- Aider prints state like:
+		-- Readonly: file1.py file2.py
+		-- Editable: main.py
+		local readonly = l:match("^Readonly:%s+(.+)")
+		local editable = l:match("^Editable:%s+(.+)")
+		
+		if readonly or editable then
+			found_state = true
+			local files = readonly or editable
+			for f_path in files:gmatch("%S+") do
 				-- Clean aider path junk
-				local clean_f = file:gsub("^%.%.%/[%.%.%/]*", ""):gsub("^%/", "")
+				local clean_f = f_path:gsub("^%.%.%/[%.%.%/]*", ""):gsub("^%/", "")
 				local real = vim.loop.fs_realpath(clean_f)
 				if real then
 					current_files[real] = true
@@ -97,8 +95,8 @@ function M.capture_sync()
 		end
 	end
 
-	-- RECONCILE: If /ls was detected (even if empty), synchronize Neovim buffers
-	if in_file_list or empty_list_detected then
+	-- Only reconcile if we actually found a state summary line
+	if found_state then
 		vim.schedule(function()
 			-- 1. Ensure all files in Aider are open in Neovim
 			for real_path, _ in pairs(current_files) do
@@ -117,7 +115,6 @@ function M.capture_sync()
 			end
 
 			-- 2. Drop any listed buffers that are NOT in Aider's list
-			-- (But only if they are normal files and not aider-pop buffers)
 			for _, b in ipairs(vim.api.nvim_list_bufs()) do
 				if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_option(b, "buflisted") then
 					local bt = vim.api.nvim_buf_get_option(b, "buftype")
@@ -132,15 +129,11 @@ function M.capture_sync()
 			end
 		end)
 	end
-	
-	M.last_sync_line = M.get_last_content_line()
 end
 
 function M.check_state(on_state_change)
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
 	
-	M.capture_sync()
-
 	local lines = vim.api.nvim_buf_get_lines(M.buffer, 0, -1, false)
 	local last = ""
 	local last_idx = 0
@@ -164,6 +157,8 @@ function M.check_state(on_state_change)
 				M.capture_answer()
 				M.is_busy = false
 			end
+			-- Always try to sync when we hit a prompt
+			M.capture_sync()
 			M.is_idle, M.is_blocked = true, false
 			if #M.command_queue > 0 then M.send_raw(table.remove(M.command_queue, 1)) end
 		end
