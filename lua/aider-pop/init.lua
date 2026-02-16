@@ -120,12 +120,27 @@ function M.setup(opts)
 		highlight default AiderTerminal guibg=NONE guifg=NONE
 	]])
 	vim.api.nvim_create_user_command("AI", function(c)
-		local text = c.args
+		local args = c.args
+		local char = args:sub(1, 1)
+		local has_prefix = (char == "?" or char == "!" or char == ":" or char == "/")
+		local query = has_prefix and args:sub(2):gsub("^%s+", "") or args
+		
 		if c.range > 0 then
-			local selection = table.concat(vim.api.nvim_buf_get_lines(0, c.line1 - 1, c.line2, false), "\n")
-			text = text .. "\n\nContext:\n```\n" .. selection .. "\n```"
+			local lines = vim.api.nvim_buf_get_lines(0, c.line1 - 1, c.line2, false)
+			local selection = table.concat(lines, "\n")
+			local ft = vim.bo.filetype
+			
+			if query == "" then
+				if char == "?" then query = "Please explain this selection:"
+				elseif char == ":" then query = "Please review this selection:"
+				else query = "Selection:" end
+			end
+			
+			query = query .. "\n\n```" .. ft .. "\n" .. selection .. "\n```"
 		end
-		M.send(text)
+		
+		local final_text = has_prefix and (char .. " " .. query) or query
+		M.send(final_text)
 	end, { nargs = "*", range = true })
 	vim.api.nvim_create_user_command("AiderPopToggle", function() M.toggle_modal() end, {})
 	vim.api.nvim_create_user_command("AiderPopStatus", function() print("Aider Status: '" .. M.status() .. "'") end, {})
