@@ -12,11 +12,9 @@ vim.opt.runtimepath:append("$REPO_ROOT")
 
 -- Setup the plugin
 require('aider-pop').setup({
-    -- Passing empty args here used to wipe out the plugin defaults
-    -- Now it should merge or we should pass what we want.
-    -- To test the plugin's new default --no-gitignore, we'll pass nothing or explicit ones.
     args = { "--no-gitignore" },
-    ui = { statusline = true }
+    ui = { statusline = true },
+    sync = { active_buffers = true }
 })
 
 vim.o.laststatus = 2

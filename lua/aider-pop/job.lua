@@ -9,6 +9,7 @@ M.last_read_line = 0
 M.last_command_line = 0
 M.last_answer = ""
 M.command_queue = {}
+M.config = {}
 
 function M.strip_ansi(text)
 	if not text then return "" end
@@ -60,6 +61,8 @@ end
 
 function M.capture_sync()
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
+	if not M.config or not M.config.sync or not M.config.sync.active_buffers then return end
+	
 	local lines = vim.api.nvim_buf_get_lines(M.buffer, M.last_command_line, -1, false)
 	for _, line in ipairs(lines) do
 		local l = M.strip_ansi(line):gsub("^%s*", ""):gsub("%s*$", "")
@@ -72,12 +75,13 @@ function M.capture_sync()
 			end)
 		elseif drop_file then
 			vim.schedule(function()
+				local full_path = vim.fn.fnamemodify(drop_file, ":p")
 				local bufs = vim.api.nvim_list_bufs()
 				for _, b in ipairs(bufs) do
 					if vim.api.nvim_buf_is_valid(b) then
 						local name = vim.api.nvim_buf_get_name(b)
-						if name:match(drop_file .. "$") then
-							vim.cmd("bwipeout " .. b)
+						if name ~= "" and vim.fn.fnamemodify(name, ":p") == full_path then
+							vim.api.nvim_buf_delete(b, { force = true })
 						end
 					end
 				end
@@ -128,6 +132,7 @@ end
 
 function M.start(config, on_state_change)
 	if M.job_id then return end
+	M.config = config
 	if vim.fn.executable(config.binary) ~= 1 then
 		vim.notify("aider binary not found: " .. config.binary, vim.log.levels.ERROR)
 		return
@@ -136,7 +141,7 @@ function M.start(config, on_state_change)
 		vim.api.nvim_buf_delete(M.buffer, { force = true })
 	end
 	M.buffer = vim.api.nvim_create_buf(false, true)
-	vim.api.nvim_buf_set_name(M.buffer, "aider-pop-terminal")
+	vim.api.nvim_buf_set_name(M.buffer, "aider-pop://" .. config.binary)
 	vim.api.nvim_buf_call(M.buffer, function()
 		M.job_id = vim.fn.termopen({ config.binary, unpack(config.args) }, {
 			env = { TERM = config.ui.terminal_name },

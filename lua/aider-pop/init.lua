@@ -65,10 +65,12 @@ function M.setup(opts)
 			local bufnr = ev.buf
 			if vim.api.nvim_buf_get_option(bufnr, "buftype") ~= "" then return end
 			local file = vim.api.nvim_buf_get_name(bufnr)
-			if file == "" or not vim.loop.fs_stat(file) then return end
+			if file == "" or file:match("^aider%-pop://") then return end
 			
-			-- Convert to relative path if possible
-			file = vim.fn.fnamemodify(file, ":.")
+			local real = vim.loop.fs_realpath(file)
+			if not real then return end
+			
+			file = vim.fn.fnamemodify(real, ":.")
 			
 			-- Don't add Aider's own buffer
 			if job.buffer and bufnr == job.buffer then return end
@@ -87,6 +89,7 @@ function M.setup(opts)
 			if bt ~= "" then return end
 			
 			local file = vim.api.nvim_buf_get_name(bufnr)
+			if file == "" or file:match("^aider%-pop://") then return end
 			if file == "" then file = ev.file end
 			if file == "" then return end
 			
