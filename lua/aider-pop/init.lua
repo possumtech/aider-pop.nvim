@@ -9,9 +9,7 @@ M.config = {
 		width = 0.8, height = 0.8, border = "rounded", terminal_name = "xterm-256color",
 		statusline = false 
 	},
-	sync = {
-		active_buffers = false,
-	},
+	sync_buffers = false,
 	pop_on_completion = false,
 	resume_session = true,
 	hooks = {
@@ -78,7 +76,7 @@ function M.setup(opts)
 	vim.api.nvim_create_autocmd("BufWinEnter", {
 		group = group,
 		callback = function(ev)
-			if not M.config.sync.active_buffers or job.is_syncing then return end
+			if not M.config.sync_buffers or job.is_syncing then return end
 			local bufnr = ev.buf
 			if vim.api.nvim_buf_get_option(bufnr, "buftype") ~= "" then return end
 			local file = vim.api.nvim_buf_get_name(bufnr)
@@ -101,7 +99,7 @@ function M.setup(opts)
 	vim.api.nvim_create_autocmd("BufDelete", {
 		group = group,
 		callback = function(ev)
-			if not M.config.sync.active_buffers or job.is_syncing then return end
+			if not M.config.sync_buffers or job.is_syncing then return end
 			local bufnr = ev.buf
 			local bt = vim.api.nvim_buf_get_option(bufnr, "buftype")
 			if bt ~= "" then return end

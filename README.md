@@ -8,7 +8,7 @@ A minimalist, modal-first Neovim interface for [aider](https://aider.chat).
 - **🚦 Statusline Dashboard:** Minimalist, high-signal state tracking (Idle, Busy, Blocked, Unread) and chat file count.
 - **🎭 Contextual Routing:** Use prefixes like `?` for questions or `!` for shell commands.
 - **🎯 Visual Selection:** Send code snippets directly to Aider as context.
-- **♻️ Auto-Recovery:** Automatically relaunches Aider if it crashes or exits.
+- **♻️ Bidirectional Sync:** Neovim and Aider keep their file lists in sync (optional).
 
 ## Installation
 
@@ -58,6 +58,7 @@ require('aider-pop').setup({
     border = "rounded",
     statusline = false,
   },
+  sync_buffers = false, -- Auto /add and /drop files as you open/close them in Neovim
   pop_on_completion = false, -- Automatically pop up when Aider finishes a task
   resume_session = true,     -- Automatically open a file from the chat on startup
   hooks = {

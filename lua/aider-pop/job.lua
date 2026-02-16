@@ -161,7 +161,7 @@ function M.capture_sync(force)
 	for k, v in pairs(current_repo_files) do M.repo_files[k] = v end
 	for k, v in pairs(current_chat_files) do M.repo_files[k] = v end
 
-	if M.config.sync and M.config.sync.active_buffers then
+	if M.config.sync_buffers then
 		if found_sync_data or empty_list_detected or next(current_chat_files) ~= nil then
 			vim.schedule(function()
 				for real_path, _ in pairs(current_chat_files) do

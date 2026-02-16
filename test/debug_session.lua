@@ -2,7 +2,7 @@ local M = require('aider-pop')
 local job = require('aider-pop.job')
 
 M.setup({
-    sync = { active_buffers = true },
+    sync_buffers = true,
     ui = { statusline = true }
 })
 

@@ -14,7 +14,7 @@ vim.opt.runtimepath:append("$REPO_ROOT")
 require('aider-pop').setup({
     args = { "--no-gitignore" },
     ui = { statusline = true },
-    sync = { active_buffers = true }
+    sync_buffers = true
 })
 
 vim.o.laststatus = 2

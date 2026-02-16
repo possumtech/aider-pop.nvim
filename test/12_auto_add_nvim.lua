@@ -41,7 +41,7 @@ tf:close()
 
 M.setup({ 
     binary = mock_bin,
-    sync = { active_buffers = true }
+    sync_buffers = true
 })
 
 -- 2. Wait for initial /ls to populate whitelist

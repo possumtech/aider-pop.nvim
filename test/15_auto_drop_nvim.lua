@@ -17,7 +17,7 @@ os.execute("chmod +x " .. mock_bin)
 
 M.setup({ 
     binary = mock_bin,
-    sync = { active_buffers = true }
+    sync_buffers = true
 })
 
 -- Wait for initial idle
