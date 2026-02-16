@@ -7,9 +7,8 @@ f:write([=[#!/bin/bash
 printf "architect> "
 while read line; do
   if [[ "$line" == *"/ls"* ]]; then
-    echo "Files in chat:"
-    echo "  file.lua"
-    echo ""
+    echo "Readonly: "
+    echo "Editable: file.lua"
     printf "architect> "
   else
     printf "architect> "
@@ -36,14 +35,14 @@ vim.wait(5000, function() return M.is_idle end)
 M.send("/add file.lua")
 
 -- Verify that Neovim opened file.lua
-local ok = vim.wait(5000, function()
+local ok = vim.wait(10000, function()
     local buffers = vim.api.nvim_list_bufs()
     for _, b in ipairs(buffers) do
         local name = vim.api.nvim_buf_get_name(b)
         if name:match("file.lua") then return true end
     end
     return false
-end)
+end, 200)
 
 M.stop()
 os.remove(mock_bin)

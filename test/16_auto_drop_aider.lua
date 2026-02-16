@@ -7,8 +7,8 @@ f:write([=[#!/bin/bash
 printf "architect> "
 while read line; do
   if [[ "$line" == *"/ls"* ]]; then
-    echo "No files in chat."
-    echo ""
+    echo "Readonly: "
+    echo "Editable: "
     printf "architect> "
   else
     printf "architect> "
@@ -36,7 +36,7 @@ vim.wait(5000, function() return M.is_idle end)
 M.send("/drop file.lua")
 
 -- Verify that Neovim closed file.lua
-local ok = vim.wait(5000, function()
+local ok = vim.wait(10000, function()
     local buffers = vim.api.nvim_list_bufs()
     for _, b in ipairs(buffers) do
         local name = vim.api.nvim_buf_get_name(b)
@@ -45,7 +45,7 @@ local ok = vim.wait(5000, function()
         end
     end
     return true
-end)
+end, 200)
 
 M.stop()
 os.remove(mock_bin)

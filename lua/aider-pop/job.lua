@@ -64,34 +64,33 @@ function M.capture_sync()
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
 	if not M.config or not M.config.sync or not M.config.sync.active_buffers then return end
 	
-	-- We look at the last 10 lines of the buffer to find the state summary
-	local line_count = vim.api.nvim_buf_line_count(M.buffer)
-	local start_line = math.max(0, line_count - 10)
-	local lines = vim.api.nvim_buf_get_lines(M.buffer, start_line, -1, false)
-	
+	local lines = vim.api.nvim_buf_get_lines(M.buffer, M.last_sync_line, -1, false)
+	if #lines == 0 then return end
+
 	local current_files = {}
+	local current_files_list = {}
 	local found_state = false
 
 	for _, line in ipairs(lines) do
 		local l = M.strip_ansi(line):gsub("^%s*", ""):gsub("%s*$", "")
 		
-		-- Aider prints state like:
-		-- Readonly: file1.py file2.py
-		-- Editable: main.py
-		local readonly = l:match("^Readonly:%s+(.+)")
-		local editable = l:match("^Editable:%s+(.+)")
+		-- Match Aider's metadata state lines (robust source of truth)
+		local readonly_list = l:match("^Readonly:%s*(.*)")
+		local editable_list = l:match("^Editable:%s*(.*)")
 		
-		if readonly or editable then
+		if readonly_list or editable_list then
 			found_state = true
-			local files = readonly or editable
-			for f_path in files:gmatch("%S+") do
-				-- Clean aider path junk
-				local clean_f = f_path:gsub("^%.%.%/[%.%.%/]*", ""):gsub("^%/", "")
-				local real = vim.loop.fs_realpath(clean_f)
-				if real then
-					current_files[real] = true
-				end
-			end
+			if readonly_list and readonly_list ~= "" then for f in readonly_list:gmatch("%S+") do table.insert(current_files_list, f) end end
+			if editable_list and editable_list ~= "" then for f in editable_list:gmatch("%S+") do table.insert(current_files_list, f) end end
+		end
+	end
+
+	for _, f_path in ipairs(current_files_list) do
+		-- Clean aider path junk
+		local clean_f = f_path:gsub("^%.%.%/[%.%.%/]*", ""):gsub("^%/", "")
+		local real = vim.loop.fs_realpath(clean_f)
+		if real then
+			current_files[real] = true
 		end
 	end
 
@@ -110,7 +109,9 @@ function M.capture_sync()
 					end
 				end
 				if not is_open then 
-					vim.cmd("edit " .. vim.fn.fnameescape(real_path))
+					local bufnr = vim.fn.bufadd(real_path)
+					vim.fn.bufload(bufnr)
+					vim.api.nvim_buf_set_option(bufnr, "buflisted", true)
 				end
 			end
 
@@ -129,11 +130,15 @@ function M.capture_sync()
 			end
 		end)
 	end
+	
+	M.last_sync_line = M.get_last_content_line()
 end
 
 function M.check_state(on_state_change)
 	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
 	
+	M.capture_sync()
+
 	local lines = vim.api.nvim_buf_get_lines(M.buffer, 0, -1, false)
 	local last = ""
 	local last_idx = 0
@@ -157,8 +162,6 @@ function M.check_state(on_state_change)
 				M.capture_answer()
 				M.is_busy = false
 			end
-			-- Always try to sync when we hit a prompt
-			M.capture_sync()
 			M.is_idle, M.is_blocked = true, false
 			if #M.command_queue > 0 then M.send_raw(table.remove(M.command_queue, 1)) end
 		end
