@@ -8,7 +8,7 @@ M.is_busy = false
 M.last_read_line = 0
 M.last_command_line = 0
 M.last_sync_line = 0
-M.last_answer = ""
+M.last_seen_line = 0
 M.command_queue = {}
 M.config = {}
 M.repo_files = {} -- Whitelist of files in the project
@@ -30,36 +30,6 @@ function M.get_last_content_line()
 		if M.strip_ansi(lines[i]):gsub("%s+$", "") ~= "" then return i end
 	end
 	return 0
-end
-
-function M.capture_answer()
-	if not M.buffer or not vim.api.nvim_buf_is_valid(M.buffer) then return end
-	local lines = vim.api.nvim_buf_get_lines(M.buffer, M.last_command_line, -1, false)
-
-	local last_idx = 0
-	for i = #lines, 1, -1 do
-		if M.strip_ansi(lines[i]):gsub("%s+$", "") ~= "" then
-			last_idx = i
-			break
-		end
-	end
-
-	if last_idx <= 1 then return end
-
-	local empty_idx = 0
-	for i = last_idx - 1, 1, -1 do
-		if M.strip_ansi(lines[i]):gsub("%s+$", "") == "" then
-			empty_idx = i
-			break
-		end
-	end
-
-	if empty_idx > 1 then
-		local line = M.strip_ansi(lines[empty_idx - 1]):gsub("^%s*", ""):gsub("%s*$", "")
-		if line ~= "" then
-			M.last_answer = line
-		end
-	end
 end
 
 M.is_syncing = false
@@ -233,7 +203,6 @@ function M.check_state(on_state_change)
 		local is_genuine_prompt = not M.is_busy or last_idx > M.last_command_line
 		if is_genuine_prompt then
 			if M.is_busy then
-				M.capture_answer()
 				M.is_busy = false
 			end
 			M.capture_sync()

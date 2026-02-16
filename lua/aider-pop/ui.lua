@@ -9,6 +9,7 @@ function M.toggle_modal(job, config)
 		M.window = nil
 		vim.cmd("redrawstatus")
 	elseif job.buffer and vim.api.nvim_buf_is_valid(job.buffer) then
+		job.last_read_line = job.get_last_content_line()
 		local w, h = math.floor(vim.o.columns * config.ui.width), math.floor(vim.o.lines * config.ui.height)
 		M.window = vim.api.nvim_open_win(job.buffer, true, {
 			relative = "editor", width = w, height = h, row = math.floor((vim.o.lines - h) / 2),
@@ -29,17 +30,20 @@ function M.toggle_modal(job, config)
 end
 
 function M.status(job)
-	if not job.job_id then return "💤" end
-	if job.is_blocked then return "✋" end
-	if job.is_busy or not job.is_idle then return "⏳" end
+	if not (job.job_id and job.job_id > 0) then return "💀 0" end
 	
-	if job.last_answer ~= "" then
-		local clean = job.last_answer:gsub("%s+", " "):gsub("^%s*", ""):sub(1, 50)
-		return "🤖 " .. clean .. (#job.last_answer > 50 and "..." or "")
+	local count = vim.tbl_count(job.chat_files or {})
+	local icon = "🤖"
+	
+	if job.is_blocked then 
+		icon = "✋"
+	elseif job.is_busy or not job.is_idle then 
+		icon = "⏳"
+	elseif job.get_last_content_line() > job.last_read_line and not (M.window and vim.api.nvim_win_is_valid(M.window)) then
+		icon = "✨"
 	end
-
-	local content_line = job.get_last_content_line()
-	return content_line > job.last_read_line and "🤖" or ""
+	
+	return string.format("%s %d", icon, count)
 end
 
 return M
