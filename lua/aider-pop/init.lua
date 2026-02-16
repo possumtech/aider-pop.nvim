@@ -119,7 +119,7 @@ function M.setup(opts)
 end
 
 function M.is_git_root()
-	return vim.fn.isdirectory(".git") == 1
+	return vim.loop.fs_stat(".git") ~= nil
 end
 
 function M.start()
