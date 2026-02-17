@@ -5,7 +5,7 @@ local reconciler = require('aider-pop.reconciler')
 
 M.config = {
 	binary = "aider",
-	args = { "--no-gitignore", "--yes-always", "--no-pretty" },
+	args = { "--no-gitignore", "--no-pretty" },
 	width = 0.8,
 	height = 0.8,
 	border = "rounded",
