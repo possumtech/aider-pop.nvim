@@ -1,6 +1,7 @@
 local M = {}
 local job = require('aider-pop.job')
 local ui = require('aider-pop.ui')
+local reconciler = require('aider-pop.reconciler')
 
 M.config = {
 	binary = "aider",
@@ -84,14 +85,7 @@ function M.setup(opts)
 			local real = vim.loop.fs_realpath(file)
 			if not real then return end
 			
-			-- Only add if Aider has this file in its project whitelist
-			-- AND it's not already in the chat
-			if not job.repo_files[real] or job.chat_files[real] then return end
-			
-			file = vim.fn.fnamemodify(real, ":.")
-			if job.buffer and bufnr == job.buffer then return end
-			
-			M.send("/add " .. file)
+			reconciler.maybe_add(job, real)
 		end
 	})
 
@@ -110,10 +104,7 @@ function M.setup(opts)
 			local real = vim.loop.fs_realpath(file)
 			if not real then return end
 			
-			file = vim.fn.fnamemodify(real, ":.")
-			if job.buffer and bufnr == job.buffer then return end
-			
-			M.send("/drop " .. file)
+			reconciler.maybe_drop(job, real)
 		end
 	})
 end

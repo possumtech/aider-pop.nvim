@@ -25,8 +25,8 @@ vim.keymap.set('n', '<leader>a', '<cmd>AiderPopToggle<cr>', { desc = "Toggle Aid
 print("🚀 aider-pop.nvim loaded with --no-gitignore!")
 EOF
 
-# Run Neovim with the temporary config
-nvim -u "$TEMP_INIT"
+# Run Neovim with the temporary config and any passed arguments
+nvim -u "$TEMP_INIT" "$@"
 
 # Cleanup
 rm "$TEMP_INIT"
