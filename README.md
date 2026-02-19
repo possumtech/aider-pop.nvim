@@ -50,7 +50,7 @@ Default options:
 ```lua
 require('aider-pop').setup({
   binary = "aider",
-  args = { "--no-gitignore", "--yes-always", "--no-pretty" },
+  args = { "--no-gitignore", "--no-pretty" },
   width = 0.8,
   height = 0.8,
   border = "rounded",

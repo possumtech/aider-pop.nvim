@@ -47,8 +47,10 @@ function M.reconcile(job, new_state)
 			for path, _ in pairs(new_state.chat) do
 				if vim.fn.bufexists(path) == 0 then
 					local bufnr = vim.fn.bufadd(path)
-					vim.fn.bufload(bufnr)
-					vim.fn.setbufvar(bufnr, "&buflisted", 1)
+					-- pcall to handle swap file ATTENTION prompts or other load errors
+					if pcall(vim.fn.bufload, bufnr) then
+						vim.fn.setbufvar(bufnr, "&buflisted", 1)
+					end
 				end
 			end
 
